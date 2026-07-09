@@ -6,6 +6,11 @@
 
 #include "common/file.h"
 
+#if defined(ENABLE_BUG_FIX) && defined(OS_WINDOWS)
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#endif
+
 #if !defined(TARGET_DOS16)
 
 #define READ_16(TARGET) /*debug("%s: %d", #TARGET, (int)ftell(stream)); */FILE_ReadU16LE(stream, &(TARGET))
@@ -181,6 +186,10 @@ int FILE_WriteSavegameFile(char* fileName)
     if (!strcmp(fileName, "BRIT.OOL") || !strcmp(fileName, "UNDER.OOL") || !strcmp(fileName, "SAVED.OOL") ||
         !strcmp(fileName, "SAVED.GAM"))
     {
+#if defined(ENABLE_BUG_FIX)
+        // BUGFIX: the SAVEGAME directory is never created, so writes here silently fail
+        CreateDirectoryA("SAVEGAME", NULL);
+#endif
         sprintf(buf, "SAVEGAME\\%s", fileName);
         fileName = buf;
     }

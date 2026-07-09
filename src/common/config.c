@@ -32,14 +32,18 @@ int CONFIG_GetString(char* section, char* key, char* defaultValue, char* outValu
 
 int CONFIG_GetInt(char* section, char* key, int defaultValue)
 {
-    char outValue[256] = { 0, };
-    CONFIG_GetString(section, key, "", outValue, 255);
+    char defaultStr[32];
+    sprintf(defaultStr, "%d", defaultValue);
 
-    int val = strtol(outValue, NULL, 10);
-    if (errno != 0)
+    char outValue[256] = { 0, };
+    CONFIG_GetString(section, key, defaultStr, outValue, 255);
+
+    char* end;
+    long val = strtol(outValue, &end, 10);
+    if (end == outValue)
     {
         return defaultValue;
     }
 
-    return val;
+    return (int)val;
 }

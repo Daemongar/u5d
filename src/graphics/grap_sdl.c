@@ -32,7 +32,26 @@ void GRAP_SDL_Initialize(void)
     windowWidth = CONFIG_GetInt("window", "width", windowWidth);
     windowHeight = CONFIG_GetInt("window", "height", windowHeight);
 
-    SDL_CreateWindowAndRenderer("Ultima V: Warriors of Destiny", windowWidth, windowHeight, 0, &s_sdlWindow, &s_sdlRenderer);
+    SDL_WindowFlags windowFlags = 0;
+
+#if defined(ENABLE_BUG_FIX)
+    bool fullscreen = CONFIG_GetInt("window", "fullscreen", 1) != 0;
+    if (fullscreen)
+    {
+        windowFlags |= SDL_WINDOW_FULLSCREEN;
+    }
+#endif
+
+    SDL_CreateWindowAndRenderer("Ultima V: Warriors of Destiny", windowWidth, windowHeight, windowFlags, &s_sdlWindow, &s_sdlRenderer);
+
+#if defined(ENABLE_BUG_FIX)
+    if (fullscreen)
+    {
+        // BUGFIX: dstRect scaling uses windowWidth/windowHeight, not the live window size,
+        // so they must be updated to the actual fullscreen resolution after creation.
+        SDL_GetWindowSizeInPixels(s_sdlWindow, &windowWidth, &windowHeight);
+    }
+#endif
 
     s_sdlSurface = SDL_CreateSurface(hiresWidth, hiresHeight, SDL_GetPixelFormatForMasks(32, 0xff0000, 0xff00, 0xff, 0xff000000));
 

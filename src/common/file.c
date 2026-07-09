@@ -3,6 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#if defined(ENABLE_BUG_FIX) && defined(OS_WINDOWS)
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#endif
+
 int FILE_ReadU32LE(FILE* fp, u32* out)
 {
     u8 b[4];
@@ -113,6 +118,10 @@ int FILE_WriteFile(char* fileName, void* buffer, uint size, int offset)
     if (!strcmp(fileName, "BRIT.OOL") || !strcmp(fileName, "UNDER.OOL") || !strcmp(fileName, "SAVED.OOL") ||
         !strcmp(fileName, "SAVED.GAM"))
     {
+#if defined(ENABLE_BUG_FIX)
+        // BUGFIX: the SAVEGAME directory is never created, so writes here silently fail
+        CreateDirectoryA("SAVEGAME", NULL);
+#endif
         sprintf(buf, "SAVEGAME\\%s", fileName);
         fileName = buf;
     }
