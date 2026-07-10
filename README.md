@@ -46,3 +46,9 @@ Run `src\build.bat` on a machine or virtual machine with Microsoft C 5.1 install
 The compiler installation path is `C:\MSC51`.
 
 Note: executable linking is currently not possible. This target is used only for disassembly matching.
+
+## Music
+
+The Windows target expects background music as `BGM/01.ogg`-`15.ogg` next to the built executable (see `src/audio/aud_sdl.c`). These aren't included in this repository. `u5win/ULTMVMSC.P00` is a Commodore 64 program (Minstrel Dragon / UDIC's "Lost Music") containing 15 selectable Ultima V tracks; run `tools/extract_bgm.ps1` (requires VICE and ffmpeg) to render them to the expected `.ogg` files.
+
+Sound effects (`SFX/*.wav`) are not yet sourced.
