@@ -295,6 +295,52 @@ int COMSUBS_04d4(int param_1, int param_2)
     return COMSUBS_048a(D_ba14[param_1].x, D_ba14[param_1].y, D_ba14[param_2].x, D_ba14[param_2].y);
 }
 
+#if defined(ENABLE_MOUSE_AIM)
+// Attacker position/range for the crosshair currently being aimed, snapshotted
+// on entry to COMSUBS_0504 so the SDL mouse handler can validate hover/click
+// tiles the same way the keyboard path does, without COMSUBS_0504 blocking on
+// mouse input itself (see src/key/key_sdl.c).
+static int s_aimOriginX;
+static int s_aimOriginY;
+static int s_aimRange;
+
+static bool COMSUBS_TryMoveCrosshair(int tileX, int tileY)
+{
+    if (!D_5898)
+        return false;
+
+    if (tileX < 0 || tileX >= 0xb || tileY < 0 || tileY >= 0xb)
+        return false;
+
+    if (COMSUBS_048a(tileX, tileY, s_aimOriginX, s_aimOriginY) > s_aimRange)
+        return false;
+
+    D_5899 = tileX;
+    D_589a = tileY;
+    return true;
+}
+
+// Moves the crosshair to follow the mouse while aiming; a no-op otherwise.
+void COMSUBS_AimHover(int tileX, int tileY)
+{
+    COMSUBS_TryMoveCrosshair(tileX, tileY);
+}
+
+// Returns true (and moves the crosshair there) if a left click on this tile
+// should confirm the attack, i.e. the crosshair is active and the tile is a
+// legal target.
+bool COMSUBS_AimClick(int tileX, int tileY)
+{
+    return COMSUBS_TryMoveCrosshair(tileX, tileY);
+}
+
+// Returns true if a right click should cancel aiming.
+bool COMSUBS_AimCancel(void)
+{
+    return D_5898 != 0;
+}
+#endif
+
 // OK P1
 int COMSUBS_0504(int param_1, int param_2)
 {
@@ -309,6 +355,11 @@ int COMSUBS_0504(int param_1, int param_2)
     ActorFmt* local_8;
 
     D_5898 = 1;
+#if defined(ENABLE_MOUSE_AIM)
+    s_aimOriginX = D_ba14[param_1].x;
+    s_aimOriginY = D_ba14[param_1].y;
+    s_aimRange = param_2;
+#endif
     local_c = D_5c5a[D_ba14[param_1].actorIdx]._7;
     local_8 = &D_5c5a[D_ba14[local_c].actorIdx];
 

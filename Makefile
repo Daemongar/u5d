@@ -11,6 +11,7 @@ OBJS += \
 	src/intro.o \
 	src/npc.o \
 	src/combat.o \
+	src/combat_gen.o \
 	src/blckthrn.o \
 	src/lookobj.o \
 	src/dnglook.o \

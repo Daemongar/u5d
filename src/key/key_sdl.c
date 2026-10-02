@@ -103,6 +103,73 @@ void KEY_SDL_ProcessKeyDown(SDL_KeyboardEvent ev)
     s_lastDownKeycode = KeyboardEventToUltimaKeycode(ev);
 }
 
+#if defined(ENABLE_MOUSE_AIM)
+
+// Combat's crosshair aiming (src/comsubs.c, COMSUBS_0504) is the only consumer
+// of mouse input; these no-op unless it's currently active.
+extern void COMSUBS_AimHover(int tileX, int tileY);
+extern bool COMSUBS_AimClick(int tileX, int tileY);
+extern bool COMSUBS_AimCancel(void);
+
+extern int windowWidth;
+extern int windowHeight;
+
+// The combat map viewport is an 11x11 grid of 16px lores tiles in the
+// top-left corner of the (320x200 lores / 640x400 hires) screen; see
+// ULTIMA_56ac_DrawMap (src/5000.c) and GRAP_BUF_PutTile (src/graphics/grap_buf.c).
+#define COMBAT_MAP_TILE_PX 16
+#define COMBAT_MAP_TILES 11
+
+static bool MousePosToTile(float mx, float my, int* outTileX, int* outTileY)
+{
+    if (windowWidth <= 0 || windowHeight <= 0)
+        return false;
+
+    int loresX = (int)(mx * 320.0f / (float)windowWidth);
+    int loresY = (int)(my * 200.0f / (float)windowHeight);
+
+    int tileX = loresX / COMBAT_MAP_TILE_PX;
+    int tileY = loresY / COMBAT_MAP_TILE_PX;
+
+    if (tileX < 0 || tileX >= COMBAT_MAP_TILES || tileY < 0 || tileY >= COMBAT_MAP_TILES)
+        return false;
+
+    *outTileX = tileX;
+    *outTileY = tileY;
+    return true;
+}
+
+void KEY_SDL_ProcessMouseMotion(SDL_MouseMotionEvent ev)
+{
+    int tileX, tileY;
+    if (MousePosToTile(ev.x, ev.y, &tileX, &tileY))
+    {
+        COMSUBS_AimHover(tileX, tileY);
+    }
+}
+
+void KEY_SDL_ProcessMouseButtonDown(SDL_MouseButtonEvent ev)
+{
+    int tileX, tileY;
+
+    if (ev.button == SDL_BUTTON_LEFT && MousePosToTile(ev.x, ev.y, &tileX, &tileY))
+    {
+        if (COMSUBS_AimClick(tileX, tileY))
+        {
+            s_lastDownKeycode = U5_KEY_ENTER;
+        }
+    }
+    else if (ev.button == SDL_BUTTON_RIGHT)
+    {
+        if (COMSUBS_AimCancel())
+        {
+            s_lastDownKeycode = U5_KEY_ESC;
+        }
+    }
+}
+
+#endif
+
 extern void EVT_Yield(void);
 
 int KEY_PollKey(void)

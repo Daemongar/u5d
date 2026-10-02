@@ -2132,40 +2132,28 @@ int SJOG_20d8(int param_1, int param_2, int param_3)
 }
 
 // CHECKED
+//
+// Cleaned up from the original decompiled shape, which walked a cumulative
+// (x, y) offset one step at a time - including a double-decrement in the
+// local_c==2 case - rather than probing each neighbor from a fixed origin.
+// Traced by hand and confirmed behaviorally identical: across all 4 steps
+// the old code visits south, east, west, then north relative to the entity's
+// actual position exactly once each, same as the DX/DY table below.
 int SJOG_2148(int param_1)
 {
+    static const int DX[4] = { 0, 1, -1, 0 };
+    static const int DY[4] = { 1, 0, 0, -1 };
+
     int local_c;
-    int local_a;
-    int local_8;
     int local_6;
     CombatEntity* local_4;
 
     local_6 = 0;
     local_4 = &D_ba14[param_1];
 
-    local_8 = local_4->x;
-    local_a = local_4->y;
-
     for (local_c = 0; local_c < 4; local_c++)
     {
-        switch (local_c)
-        {
-        case 0:
-            local_a++;
-            break;
-        case 2:
-            // bug?
-            local_8--;
-            local_8--;
-            break;
-        case 1:
-        case 3:
-            local_a--;
-            local_8++;
-            break;
-        }
-
-        if (SJOG_20d8(local_8, local_a, param_1) != 0)
+        if (SJOG_20d8(local_4->x + DX[local_c], local_4->y + DY[local_c], param_1) != 0)
         {
             local_6++;
         }

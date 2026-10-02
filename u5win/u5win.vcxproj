@@ -237,6 +237,7 @@
     <ClCompile Include="..\src\cast2.c" />
     <ClCompile Include="..\src\cmds.c" />
     <ClCompile Include="..\src\combat.c" />
+    <ClCompile Include="..\src\combat_gen.c" />
     <ClCompile Include="..\src\common\config.c" />
     <ClCompile Include="..\src\common\debug.c" />
     <ClCompile Include="..\src\common\file.c" />
@@ -338,6 +339,7 @@
     <ClInclude Include="..\src\cast2.h" />
     <ClInclude Include="..\src\cmds.h" />
     <ClInclude Include="..\src\combat.h" />
+    <ClInclude Include="..\src\combat_gen.h" />
     <ClInclude Include="..\src\common\common.h" />
     <ClInclude Include="..\src\common\config.h" />
     <ClInclude Include="..\src\common\dbg_font_data.h" />

@@ -663,7 +663,7 @@ static void CAST_091e(int param_1)
                 if (COMBAT_13e2(local_4, QUERY_STAT_DEX) <= ULTIMA_3abe())
                 {
                     ULTIMA_3564(local_4);
-                    ULTIMA_3f14_IncreaseInt(&D_55a8_party[param_1].exp, COMBAT_1574(local_4, ULTIMA_2092_RandomRange(1, 0x14)), 9999); // FMT: &local_8 ??
+                    COMBAT_AwardExp(&D_55a8_party[param_1], COMBAT_1574(local_4, ULTIMA_2092_RandomRange(1, 0x14))); // FMT: &local_8 ??
                     COMSUBS_0312(local_4, D_589e);
                 }
             }
@@ -2166,7 +2166,7 @@ static void CAST_1f60(int param_1, int param_2, int param_3)
                         // e05c
                         ULTIMA_3564(local_108);
 
-                        ULTIMA_3f14_IncreaseInt(&local_104->exp, COMBAT_1574(local_108, ULTIMA_3aae_Random(0x1e)), 9999);
+                        COMBAT_AwardExp(local_104, COMBAT_1574(local_108, ULTIMA_3aae_Random(0x1e)));
                         COMSUBS_0312(local_108, param_1); // -> e034 -> e0b2
                         break;
 
@@ -2176,7 +2176,7 @@ static void CAST_1f60(int param_1, int param_2, int param_3)
                         {
                             ULTIMA_3564(local_108);
 
-                            ULTIMA_3f14_IncreaseInt(&local_104->exp, COMBAT_1574(local_108, 99), 9999); // -> e070
+                            COMBAT_AwardExp(local_104, COMBAT_1574(local_108, 99)); // -> e070
                             COMSUBS_0312(local_108, param_1); // -> e034 -> e0b2
                         }
                         break;

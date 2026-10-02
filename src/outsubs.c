@@ -401,6 +401,50 @@ void OUTSUBS_05fc_StepOnPoisonTile(void)
 }
 
 // CHECKED
+#if defined(ENABLE_CLASS_STAT_GROWTH)
+typedef struct ClassStatWeights
+{
+    u8 strPct;
+    u8 dexPct;
+    u8 intelPct; // strPct + dexPct + intelPct should sum to 100
+} ClassStatWeights;
+
+// Indexed by class letter's position in CLASS_LIST ("AMBFDTPRS"). Classes
+// that can never use mana (everyone but Avatar/Mage/Bard) get 0% INTEL.
+static const ClassStatWeights s_classStatWeights[9] =
+{
+    { 34, 33, 33 }, // A Avatar
+    { 15, 35, 50 }, // M Mage
+    { 25, 40, 35 }, // B Bard
+    { 60, 40,  0 }, // F Fighter
+    { 45, 55,  0 }, // D Druid
+    { 30, 70,  0 }, // T Tinker
+    { 50, 50,  0 }, // P Paladin
+    { 35, 65,  0 }, // R Ranger
+    { 50, 50,  0 }, // S Shepherd
+};
+
+// Returns 1 (str), 2 (dex), or 3 (intel) for the level-up bonus, weighted
+// by the character's class instead of a flat 1-in-3 split.
+static int OUTSUBS_ChooseLevelUpStat(int cls)
+{
+    const ClassStatWeights* w = &s_classStatWeights[ULTIMA_4d76_FindIndex(CLASS_LIST, cls)];
+    int roll = ULTIMA_2092_RandomRange(1, 100);
+
+    if (roll <= w->strPct)
+    {
+        return 1;
+    }
+
+    if (roll <= w->strPct + w->dexPct)
+    {
+        return 2;
+    }
+
+    return 3;
+}
+#endif
+
 void OUTSUBS_0658(void)
 {
     int local_a;
@@ -479,7 +523,11 @@ void OUTSUBS_0658(void)
                 ULTIMA_1a3e_PrintNumber(local_e, 1, 0x20);
                 ULTIMA_1850_PrintString(_TEXT(0x77b8, ", and\n"));
 
+#if defined(ENABLE_CLASS_STAT_GROWTH)
+                switch (OUTSUBS_ChooseLevelUpStat(D_55a8_party[local_8].cls))
+#else
                 switch (ULTIMA_2092_RandomRange(1, 3))
+#endif
                 {
                 case 1:
                     ULTIMA_1850_PrintString(_TEXT(0x77c0, "stronger!"));
@@ -508,7 +556,11 @@ void OUTSUBS_0658(void)
             D_55a8_party[local_8].mag = D_55a8_party[local_8].intel;
             break;
         case CLASS_BARD:
+#if defined(ENABLE_BARD_MANA_ROUNDUP)
+            D_55a8_party[local_8].mag = (D_55a8_party[local_8].intel + 1) >> 1;
+#else
             D_55a8_party[local_8].mag = D_55a8_party[local_8].intel >> 1;
+#endif
             break;
         }
 

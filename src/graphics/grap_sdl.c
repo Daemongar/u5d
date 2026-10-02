@@ -16,11 +16,23 @@ static SDL_Texture* s_sdlTexture;
 int windowWidth = 1280;
 int windowHeight = 960;
 
+#if defined(ENABLE_ENHANCED_PALETTE)
+// The same 16 EGA hues/roles (index-for-index), softened: less oversaturated,
+// slightly warmer grays/white, so tile art (authored against these exact
+// slots) reads the same way but without the harsh raw 0x00/0x55/0xaa/0xff
+// stepping of the original EGA DAC.
+static Uint32 s_egaPalette[16] =
+{
+    0xff0a0a0a, 0xff1e3a8a, 0xff15803d, 0xff0e7490, 0xffb91c1c, 0xff86198f, 0xff92400e, 0xffa8a29e,
+    0xff57534e, 0xff3b82f6, 0xff4ade80, 0xff22d3ee, 0xfff87171, 0xffe879f9, 0xfffacc15, 0xfffafaf9,
+};
+#else
 static Uint32 s_egaPalette[16] =
 {
     0xff000000, 0xff0000aa, 0xff00aa00, 0xff00aaaa, 0xffaa0000, 0xffaa00aa, 0xffaa5500, 0xffaaaaaa,
     0xff555555, 0xff5555ff, 0xff55ff55, 0xff55ffff, 0xffff5555, 0xffff55ff, 0xffffff55, 0xffffffff,
 };
+#endif
 
 void GRAP_SDL_FlushFrame(void);
 
@@ -39,6 +51,10 @@ void GRAP_SDL_Initialize(void)
     if (fullscreen)
     {
         windowFlags |= SDL_WINDOW_FULLSCREEN;
+    }
+    else
+    {
+        windowFlags |= SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED;
     }
 #endif
 
@@ -126,6 +142,10 @@ void GRAP_SDL_FlushFrame(void)
     LinearToRGB();
 
     SDL_UpdateTexture(s_sdlTexture, NULL, s_sdlSurface->pixels, s_sdlSurface->pitch);
+
+    // Window may be resized or (un)maximized at any time; re-read the live size
+    // each frame so the picture always fills the window instead of clipping.
+    SDL_GetWindowSizeInPixels(s_sdlWindow, &windowWidth, &windowHeight);
 
     SDL_FRect srcRect = {0, 0, hiresWidth, hiresHeight};
     SDL_FRect dstRect = {0, 0, windowWidth, windowHeight};

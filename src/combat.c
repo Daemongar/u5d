@@ -915,6 +915,32 @@ int COMBAT_0b94_MainLoop(void)
 }
 
 // CHECKED
+#if defined(ENABLE_SMARTER_AI)
+// Current HP as a percentage of max HP for a combat entity (player or
+// monster); used by COMBAT_0d30 to bias target selection toward wounded
+// enemies. Returns 100 if max HP can't be determined (treated as full health).
+static int COMBAT_HpPercent(CombatEntity* entity)
+{
+    int maxHp;
+
+    if ((entity->flags & COMBAT_FLAGS_PLAYER) != 0)
+    {
+        maxHp = D_55a8_party[entity->entityIdx].maxHp;
+    }
+    else
+    {
+        maxHp = D_13bc[entity->entityIdx]._5_maxHp;
+    }
+
+    if (maxHp <= 0)
+    {
+        return 100;
+    }
+
+    return (entity->hp * 100) / maxHp;
+}
+#endif
+
 static int COMBAT_0d30(int param_1)
 {
     int local_18;
@@ -962,6 +988,29 @@ static int COMBAT_0d30(int param_1)
 
                     // b06b
                     local_18 = COMSUBS_048a(local_6->x, local_6->y, local_c->x, local_c->y);
+
+#if defined(ENABLE_SMARTER_AI)
+                    // Make a wounded candidate look closer than it really is,
+                    // so a nearby finishing blow is preferred over a slightly
+                    // nearer full-health target, without ever overriding a
+                    // real difference in distance.
+                    {
+                        int hpPct = COMBAT_HpPercent(local_c);
+                        if (hpPct <= 25)
+                        {
+                            local_18 -= 2;
+                        }
+                        else if (hpPct <= 50)
+                        {
+                            local_18 -= 1;
+                        }
+                        if (local_18 < 0)
+                        {
+                            local_18 = 0;
+                        }
+                    }
+#endif
+
                     if (local_18 < local_4)
                     {
                         local_4 = local_18;
@@ -1487,6 +1536,71 @@ int COMBAT_14d6(int param_1, int param_2, int param_3, int param_4)
     return local_6;
 }
 
+#if defined(ENABLE_GROUP_EXP_BONUS)
+// +25% bonus experience per additional enemy still in the fight (including
+// the one just killed), capped at +100%: fighting a group is harder than
+// fighting a single monster one at a time, so it should pay better.
+#define GROUP_EXP_BONUS_PCT_PER_ENEMY 25
+#define GROUP_EXP_BONUS_PCT_MAX 100
+
+static int COMBAT_CountLivingEnemies(void)
+{
+    int i;
+    int count;
+
+    count = 0;
+    for (i = 0; i < 0x20; i++)
+    {
+        if ((D_ba14[i].flags & COMBAT_FLAGS_MONSTER) != 0 && (D_ba14[i].flags & COMBAT_FLAGS_DEAD) == 0)
+        {
+            count++;
+        }
+    }
+
+    return count;
+}
+#endif
+
+void COMBAT_AwardExp(S_55a8* killer, int amount)
+{
+    if (amount <= 0)
+    {
+        return;
+    }
+
+#if defined(ENABLE_GROUP_EXP_BONUS)
+    {
+        // The monster that was just killed already lost its MONSTER flag
+        // (see COMBAT_1574), so it isn't counted here; +1 accounts for it.
+        int groupSize = COMBAT_CountLivingEnemies() + 1;
+        int bonusPct = (groupSize - 1) * GROUP_EXP_BONUS_PCT_PER_ENEMY;
+        if (bonusPct > GROUP_EXP_BONUS_PCT_MAX)
+        {
+            bonusPct = GROUP_EXP_BONUS_PCT_MAX;
+        }
+        amount += amount * bonusPct / 100;
+    }
+#endif
+
+#if defined(ENABLE_PARTY_EXP)
+    {
+        int i;
+        for (i = 0; i < D_585b; i++)
+        {
+            if (D_55a8_party[i].status != STATUS_DEAD)
+            {
+                ULTIMA_3f14_IncreaseInt(&D_55a8_party[i].exp, amount, 9999);
+            }
+        }
+    }
+#else
+    if (killer != NULL)
+    {
+        ULTIMA_3f14_IncreaseInt(&killer->exp, amount, 9999);
+    }
+#endif
+}
+
 // OK P1
 // on damage (param_1: target entity, param_2: dmg)
 int COMBAT_1574(int param_1, int param_2)
@@ -1656,7 +1770,7 @@ void COMBAT_18ba(int param_1, int param_2)
         local_4 = COMBAT_1574(param_1, ULTIMA_3aae_Random(0x14));
         if (param_2 > -1 && (D_ba14[param_2].flags & COMBAT_FLAGS_PLAYER) != 0)
         {
-            ULTIMA_3f14_IncreaseInt(&D_55a8_party[D_ba14[param_2].entityIdx].exp, local_4, 9999);
+            COMBAT_AwardExp(&D_55a8_party[D_ba14[param_2].entityIdx], local_4);
         }
     }
 }
@@ -1719,7 +1833,7 @@ void COMBAT_194a(int param_1, int param_2)
             if ((D_ba14[param_2].flags & COMBAT_FLAGS_PLAYER) != 0)
             {
                 // 1a3c
-                ULTIMA_3f14_IncreaseInt(&D_55a8_party[D_ba14[param_2].entityIdx].exp, local_8, 9999);
+                COMBAT_AwardExp(&D_55a8_party[D_ba14[param_2].entityIdx], local_8);
             }
         }
         else

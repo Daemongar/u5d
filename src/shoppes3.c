@@ -155,7 +155,11 @@ static int SHOPPES3_0072(int param_1, int param_2, int param_3)
                             break;
 
                         case CLASS_BARD:
+#if defined(ENABLE_BARD_MANA_ROUNDUP)
+                            local_6->mag = (local_6->intel + 1) >> 1;
+#else
                             local_6->mag = local_6->intel >> 1;
+#endif
                             break;
                         }
 
@@ -536,7 +540,11 @@ static int SHOPPES3_04e6(int param_1, int param_2)
                         local_26->mag = local_26->intel;
                         break;
                     case CLASS_BARD:
+#if defined(ENABLE_BARD_MANA_ROUNDUP)
+                        local_26->mag = (local_26->intel + 1) >> 1;
+#else
                         local_26->mag = local_26->intel >> 1;
+#endif
                         break;
                     }
 

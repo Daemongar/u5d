@@ -891,7 +891,11 @@ STUB u8 D_bce0[4]; // ?
 STUB char D_bce4[0x10];
 STUB u8 D_bcf4;
 STUB u16 D_bcf6;
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+STUB char D_bcf8[22]; // expanded from 16 to hold up to TALK_INPUT_MAX (20) chars + null
+#else
 STUB char D_bcf8[16];
+#endif
 
 STUB char D_bd08[12];
 

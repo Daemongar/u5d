@@ -6,6 +6,7 @@
 
 #include "grap_drv.h"
 #include "sjog.h"
+#include "combat_gen.h"
 
 #include <string.h>
 
@@ -27,6 +28,10 @@ static void ULTIMA_60ec_LoadSpecialMap(int param_1)
         D_1704[local_4] = GetCombatMapMonsterX(local_4);
         D_1714[local_4] = GetCombatMapMonsterY(local_4);
     }
+
+#if defined(ENABLE_VARIED_COMBAT)
+    COMBAT_GEN_GenerateArena(param_1);
+#endif
 }
 
 void ULTIMA_5f86_SpecialMapHandler(int a, int b, int c);
@@ -811,6 +816,15 @@ u8 DAT_000738d8[] = {0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x28,
 
 // STUB (asm)
 // from FMT (27c98)
+//
+// Original behaviour: case-insensitive substring search.
+// Returns the byte offset into param_2 where param_1 first appears,
+// or -1 if not found. Keyword bytes have their high bit masked (& 0x7f).
+//
+// The old stub only matched at position 0 (strncmp from start). This
+// replacement does a full scan so that e.g. "MY JOB" correctly triggers
+// the "JOB" keyword.
+#if !defined(ENABLE_DIALOG_IMPROVEMENTS)
 int ULTIMA_6f1e(byte* param_1, char* param_2)
 {
     byte bVar1;
@@ -840,6 +854,54 @@ int ULTIMA_6f1e(byte* param_1, char* param_2)
 
     return local_18;
 }
+#else
+// Improved: proper case-insensitive substring search.
+// Both the keyword (param_1, high-bit masked) and the input (param_2)
+// are compared using ULTIMA_2032_ToUpper so the match is case-insensitive
+// even if the caller hasn't already uppercased the input buffer.
+int ULTIMA_6f1e(byte* param_1, char* param_2)
+{
+    int kwLen;
+    int hayLen;
+    int i;
+    int j;
+    int match;
+
+    // Measure keyword length (strip high bit from each byte)
+    kwLen = 0;
+    while (param_1[kwLen] != 0)
+    {
+        kwLen++;
+    }
+
+    if (kwLen == 0)
+    {
+        return -1;
+    }
+
+    hayLen = (int)strlen(param_2);
+
+    for (i = 0; i <= hayLen - kwLen; i++)
+    {
+        match = 1;
+        for (j = 0; j < kwLen; j++)
+        {
+            if (ULTIMA_2032_ToUpper(param_1[j] & 0x7f) != ULTIMA_2032_ToUpper((byte)param_2[i + j]))
+            {
+                match = 0;
+                break;
+            }
+        }
+
+        if (match)
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+#endif
 
 // STUB (asm)
 static int ULTIMA_6f90(char* di)

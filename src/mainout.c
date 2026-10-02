@@ -265,8 +265,35 @@ void MAINOUT_0354(int param_1, int param_2)
     }
 }
 
+#if defined(ENABLE_TERRAIN_ELEVATION)
+// Elevation band for a map tile: 0 (flat/safe), 1 (difficult - scrub/marsh),
+// 2 (very difficult - hills/mountains). Mirrors the terrain classification
+// MAINOUT_03e0 already uses for its own time-cost tiers below.
+static int MAINOUT_GetTileElevation(int tileId)
+{
+    if (tileId == TILE_MAP_GRASS)
+    {
+        return 0;
+    }
+    else if (tileId == TILE_MAP_1E || tileId == TILE_MAP_1F)
+    {
+        return 1;
+    }
+    else if (tileId < TILE_MAP_POISON || tileId >= TILE_MAP_HUT)
+    {
+        return 0;
+    }
+    else if (tileId >= TILE_MAP_9)
+    {
+        return 2;
+    }
+
+    return 1;
+}
+#endif
+
 // OK P1
-static void MAINOUT_03e0(void)
+static void MAINOUT_03e0(int param_1_prevElevation)
 {
     int local_8;
     int local_4;
@@ -331,6 +358,17 @@ static void MAINOUT_03e0(void)
         ULTIMA_4f7c(4);
         break;
     }
+
+#if defined(ENABLE_TERRAIN_ELEVATION)
+    // Climbing costs extra on top of the destination's own difficulty: each
+    // elevation band gained over the tile you just left burns additional
+    // time, so cutting straight up a mountain from open ground is slower
+    // than approaching gradually through foothills. Descending is free.
+    if (local_6 > param_1_prevElevation)
+    {
+        ULTIMA_4f7c((local_6 - param_1_prevElevation) * 2);
+    }
+#endif
 }
 
 // OK P1
@@ -457,8 +495,16 @@ static int MAINOUT_0490(int param_1, int param_2)
             ULTIMA_433e_AudioFootstep();
         }
         // 0530
+#if defined(ENABLE_TERRAIN_ELEVATION)
+        {
+            int prevElevation = MAINOUT_GetTileElevation(*ULTIMA_4402_GetTileAddr(D_5896_map_x, D_5897_map_y));
+            MAINOUT_0354(local_6, local_8);
+            MAINOUT_03e0(prevElevation);
+        }
+#else
         MAINOUT_0354(local_6, local_8);
-        MAINOUT_03e0();
+        MAINOUT_03e0(0);
+#endif
     }
     return local_4;
 }
@@ -880,6 +926,9 @@ static void MAINOUT_0a84_MainLoop(void)
                     break; // -> 0c12
 
                 case U5_KEY_CTRL_E: // 0b48
+#if defined(ENABLE_QUICK_EXIT)
+                case U5_KEY_ESC:
+#endif
                     ULTIMA_1850_PrintString(_TEXT(0x2b3e, "Exit to DOS? "));
                     local_6 = ULTIMA_266c_GetChar();
                     if (local_6 == 'Y')

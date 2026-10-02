@@ -19,8 +19,110 @@
 #define TALK_KEY_3 3
 #define TALK_KEY_4 4
 
+// Maximum characters the player can type in a dialog prompt.
+// Original was 0xf (15); raised to 20 to accommodate longer keywords.
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+#define TALK_INPUT_MAX 20
+#else
+#define TALK_INPUT_MAX 0xf
+#endif
+
+// Number of dialog lines printed before an automatic "press any key" pause.
+#define TALK_LINES_PER_PAGE 6
+
 static int TALK_0f32_ProcessChar(byte param_1);
 static void TALK_127e_StartTalk(int a);
+
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+// Bitmask of which NPC-specific keyword slots (0..31) have already been answered
+// this conversation. Reset at the start of each call to TALK_127e_StartTalk.
+static u32 D_talk_asked_mask;
+
+// Count of newlines printed since the last player input or conversation start.
+// When this hits TALK_LINES_PER_PAGE, TALK_04d2_PrintCr inserts an 0x8f-style
+// keypress wait so long responses don't scroll off the text window.
+static int D_talk_line_count;
+
+// Forward declarations needed by TALK_PrintKeywordHints (defined further below).
+static int  TALK_099a(int param_1);
+static void TALK_0574_BuildOrPrintWord(byte param_1);
+static void TALK_04e2_PrintWord(void);
+static void TALK_04da_PrintQuoteMark(void);
+static void TALK_04d2_PrintCr(void);
+
+// Print the list of NPC-specific keywords the current NPC will respond to.
+// Walks keyword strings at script indices 5, 7, 9... (every even slot from 5
+// onwards) and prints each one that contains only printable characters.
+// Compressed-word tokens (bytes < 0x81 in the script) are skipped — those
+// keywords exist in the data but can't be reproduced as readable text here.
+static void TALK_PrintKeywordHints(void)
+{
+    int slot;
+    byte* ptr;
+    byte ch;
+    int printable;
+    int printed;
+    int i;
+
+    printed = 0;
+
+    ULTIMA_1850_PrintString("\"Try asking about: ");
+
+    for (slot = 0; slot < 32; slot++)
+    {
+        // Navigate to the keyword string at index (slot * 2 + 5)
+        if (TALK_099a(slot) == 0)
+        {
+            break;
+        }
+
+        // D_bcde now points at the keyword string for this slot.
+        // Check that every byte (high-bit masked) is a printable ASCII char.
+        ptr = D_bcde;
+        printable = 1;
+        i = 0;
+        while (*ptr != 0 && *ptr != 0x90)
+        {
+            ch = *ptr & 0x7f;
+            if (ch < 0x20)
+            {
+                printable = 0;
+                break;
+            }
+            ptr++;
+            i++;
+        }
+
+        if (printable && i > 0)
+        {
+            if (printed > 0)
+            {
+                ULTIMA_1850_PrintString(", ");
+            }
+
+            // Print the keyword characters directly via TALK_0f32_ProcessChar
+            // with the high bit set so they render as plain text.
+            ptr = D_bcde;
+            while (*ptr != 0 && *ptr != 0x90)
+            {
+                TALK_0574_BuildOrPrintWord((byte)((*ptr & 0x7f) | 0x80));
+                ptr++;
+            }
+            TALK_04e2_PrintWord();
+            printed++;
+        }
+    }
+
+    if (printed == 0)
+    {
+        ULTIMA_1850_PrintString("nothing in particular");
+    }
+
+    TALK_04da_PrintQuoteMark();
+    TALK_04d2_PrintCr();
+    TALK_04d2_PrintCr();
+}
+#endif
 
 // CHECKED
 static int TALK_0000_CompareStringNoCase(char* param_1, char* param_2)
@@ -380,7 +482,19 @@ int TALK_041c_TalkCmd(void)
 }
 
 // OK P1
-static void TALK_04d2_PrintCr(void) { TALK_0f32_ProcessChar(0x80 | 0xd); }
+static void TALK_04d2_PrintCr(void)
+{
+    TALK_0f32_ProcessChar(0x80 | 0xd);
+
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+    D_talk_line_count++;
+    if (D_talk_line_count >= TALK_LINES_PER_PAGE)
+    {
+        D_talk_line_count = 0;
+        ULTIMA_266c_GetChar();
+    }
+#endif
+}
 
 // OK P1
 static void TALK_04da_PrintQuoteMark(void) { TALK_0f32_ProcessChar(0x80 | 0x22); }
@@ -786,8 +900,23 @@ static int TALK_09d8(void)
 // OK P1
 static void TALK_0a2c_GetString(void)
 {
+    int local_4;
+
     TALK_04e2_PrintWord();
-    ULTIMA_3b1c_GetString(D_bcf8, 0xf);
+    ULTIMA_3b1c_GetString(D_bcf8, TALK_INPUT_MAX);
+
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+    // Uppercase the buffer so all keyword matching is case-insensitive regardless
+    // of whether the caller uses TALK_0000_CompareStringNoCase or ULTIMA_6f1e.
+    for (local_4 = 0; D_bcf8[local_4] != 0; local_4++)
+    {
+        D_bcf8[local_4] = (char)ULTIMA_2032_ToUpper((byte)D_bcf8[local_4]);
+    }
+
+    // Player just provided new input — reset the line counter so the next
+    // response gets a fresh page budget before auto-pausing.
+    D_talk_line_count = 0;
+#endif
 }
 
 // OK P1
@@ -916,6 +1045,16 @@ static int TALK_0b04(void)
 
         if (local_6 != 0)
         {
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+            // Check for HINT or ? before the NPC-specific keyword scan.
+            if (local_6 == -1 &&
+                (ULTIMA_6f1e((byte*)"HINT", D_bcf8) != -1 ||
+                 ULTIMA_6f1e((byte*)"?",    D_bcf8) != -1))
+            {
+                TALK_PrintKeywordHints();
+            }
+            else
+#endif
             if (TALK_09d8() == 0)
             {
                 ULTIMA_1850_PrintString(_TEXT(0x9420, "\"I cannot help thee with that."));
@@ -925,6 +1064,31 @@ static int TALK_0b04(void)
             }
             else
             {
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+                if (D_bcf6 < 32 && (D_talk_asked_mask & ((u32)1 << D_bcf6)) != 0)
+                {
+                    // Already answered this keyword this conversation
+                    ULTIMA_1850_PrintString(_TEXT(0x9420, "\"I have already told thee of that."));
+                    TALK_04da_PrintQuoteMark();
+                    TALK_04d2_PrintCr();
+                    TALK_04d2_PrintCr();
+                }
+                else
+                {
+                    if (D_bcf6 < 32)
+                    {
+                        D_talk_asked_mask |= ((u32)1 << D_bcf6);
+                    }
+                    TALK_04da_PrintQuoteMark();
+                    if (TALK_07aa_ProcessNthTalkString(D_bcf6 * 2 + 6) != 0)
+                    {
+                        return 1;
+                    }
+                    TALK_04da_PrintQuoteMark();
+                    TALK_04d2_PrintCr();
+                    TALK_04d2_PrintCr();
+                }
+#else
                 TALK_04da_PrintQuoteMark();
                 if (TALK_07aa_ProcessNthTalkString(D_bcf6 * 2 + 6) != 0)
                 {
@@ -933,6 +1097,7 @@ static int TALK_0b04(void)
                 TALK_04da_PrintQuoteMark();
                 TALK_04d2_PrintCr();
                 TALK_04d2_PrintCr();
+#endif
             }
         }
     }
@@ -1508,6 +1673,11 @@ static void TALK_127e_StartTalk(int param_1)
     // 12d6
     local_8 = *local_6;
     ULTIMA_256e_ReadFileFromDisk(D_4aa0[local_4], D_b21e, 0x400, local_8);
+
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+    D_talk_asked_mask = 0;
+    D_talk_line_count = 0;
+#endif
 
     if (TALK_111c() == 0)
     {

@@ -1057,10 +1057,22 @@ void ULTIMA_4f7c(int param_1)
 	{
 		// 50ab
 		local_a = D_58a5;
-		if (D_5893_map_id == 0x19 || D_5895_map_level > 0x7f || D_587f < 5 || D_587f > 0x13)
+		if (D_5893_map_id == 0x19 || D_5895_map_level > 0x7f)
 		{
 			// 50cf
 			D_58a5 = 2;
+		}
+		else if (D_587f < 5 || D_587f > 0x13)
+		{
+#if defined(ENABLE_BRIGHTER_NIGHT)
+			// Light distance is squared-radius against D_6aa8 (see
+			// ULTIMA_6ff0/ULTIMA_5a28 in 5000.c), so intensity 10 lights
+			// roughly a 3-tile radius outdoors (matches the original
+			// torch-lit value) instead of vanilla night's radius-1 (2).
+			D_58a5 = 10;
+#else
+			D_58a5 = 2;
+#endif
 		}
 		else
 		{
@@ -1078,6 +1090,17 @@ void ULTIMA_4f7c(int param_1)
 			{
 				D_58a5 = 0x32;
 			}
+
+#if defined(ENABLE_BRIGHTER_NIGHT)
+			// The dawn/dusk ramp (D_6a80) still ramps toward the original
+			// night floor of 2, independently of the brighter flat night
+			// value above; without this it dips dark for a while right
+			// before jumping back up to 10 at the 5am/8pm boundary.
+			if ((D_587f == 5 || D_587f == 19) && D_58a5 < 10)
+			{
+				D_58a5 = 10;
+			}
+#endif
 		}
 
 		// 5115

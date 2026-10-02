@@ -459,7 +459,11 @@ int CAST2_05e0_Resurrect(int param_1, int param_2)
             break;
 
         case CLASS_BARD:
+#if defined(ENABLE_BARD_MANA_ROUNDUP)
+            local_4->mag = (local_4->intel + 1) >> 1;
+#else
             local_4->mag = local_4->intel >> 1;
+#endif
             break;
         }
 

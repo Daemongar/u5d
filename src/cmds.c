@@ -274,7 +274,11 @@ int CMDS_0000(int param_1, int param_2, int param_3)
                         D_55a8_party[local_22].mag = D_55a8_party[local_22].intel;
                         break;
                     case CLASS_BARD:
+#if defined(ENABLE_BARD_MANA_ROUNDUP)
+                        D_55a8_party[local_22].mag = (D_55a8_party[local_22].intel + 1) >> 1;
+#else
                         D_55a8_party[local_22].mag = D_55a8_party[local_22].intel >> 1;
+#endif
                         break;
                     }
                 }

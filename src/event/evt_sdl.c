@@ -19,6 +19,11 @@ void EVT_Cleanup(void)
 // TODO
 void KEY_SDL_ProcessKeyDown(SDL_KeyboardEvent ev);
 
+#if defined(ENABLE_MOUSE_AIM)
+void KEY_SDL_ProcessMouseMotion(SDL_MouseMotionEvent ev);
+void KEY_SDL_ProcessMouseButtonDown(SDL_MouseButtonEvent ev);
+#endif
+
 void EVT_PollMessages(void)
 {
 	SDL_Event ev;
@@ -33,6 +38,16 @@ void EVT_PollMessages(void)
 		case SDL_EVENT_KEY_DOWN:
 			KEY_SDL_ProcessKeyDown(ev.key);
 			break;
+
+#if defined(ENABLE_MOUSE_AIM)
+		case SDL_EVENT_MOUSE_MOTION:
+			KEY_SDL_ProcessMouseMotion(ev.motion);
+			break;
+
+		case SDL_EVENT_MOUSE_BUTTON_DOWN:
+			KEY_SDL_ProcessMouseButtonDown(ev.button);
+			break;
+#endif
 		}
 	}
 }
