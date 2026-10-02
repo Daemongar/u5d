@@ -524,7 +524,13 @@ static void ULTIMA_5a28(int param_1, int param_2_y, int param_3_x, int param_4, 
                 else
                 {
                     // 5b90
+#if defined(ENABLE_BUG_FIX)
+                    // BUGFIX: ptr may point outside the viewport when the tile is
+                    // already rejected above; skip the read since it can't matter
+                    if (local_20c != 0 && *ptr != 0xff)
+#else
                     if (*ptr != 0xff)
+#endif
                     {
                         // 5b95
                         local_20c = 0;
@@ -869,7 +875,13 @@ L_606c:
 
     ULTIMA_2900_UpdateVitalsDisplay();
 
+#if defined(ENABLE_BUG_FIX)
+    // BUGFIX: local_4 may be 0xff (no active character); both branches then
+    // yield 0xff, so skip the out-of-bounds party read
+    if (local_4 != 0xff && D_55a8_party[local_4].status != STATUS_DEAD && D_55a8_party[local_4].status != STATUS_SLEEP)
+#else
     if (D_55a8_party[local_4].status != STATUS_DEAD && D_55a8_party[local_4].status != STATUS_SLEEP)
+#endif
     {
         D_587b = local_4;
     }

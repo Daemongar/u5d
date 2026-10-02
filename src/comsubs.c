@@ -361,7 +361,13 @@ int COMSUBS_0504(int param_1, int param_2)
     s_aimRange = param_2;
 #endif
     local_c = D_5c5a[D_ba14[param_1].actorIdx]._7;
+#if defined(ENABLE_BUG_FIX)
+    // BUGFIX: local_c is 0xff when there's no previous target; local_8 is
+    // only used after the range check below, so don't index with it
+    local_8 = local_c <= 0x1f ? &D_5c5a[D_ba14[local_c].actorIdx] : NULL;
+#else
     local_8 = &D_5c5a[D_ba14[local_c].actorIdx];
+#endif
 
     if (local_c > 0x1f || (D_ba14[local_c].flags & (COMBAT_FLAGS_DEAD | COMBAT_FLAGS_INVISIBLE)) != 0 || D_ba14[local_c].flags == 0 ||
         local_8->_0_tile == 0 || COMSUBS_04d4(param_1, local_c) > param_2)

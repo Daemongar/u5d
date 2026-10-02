@@ -506,7 +506,13 @@ static void ULTIMA_2726(int param_1)
     }
 
     // 2758
+#if defined(ENABLE_BUG_FIX)
+    // BUGFIX: D_589e is 0xff when no combatant is active; only form the
+    // pointer when it's in range (every use is already guarded)
+    local2_4 = D_589e != 0xff ? &D_ba14[D_589e] : NULL;
+#else
     local2_4 = &D_ba14[D_589e];
+#endif
     if (D_5893_map_id > 0x7f && D_589e != 0xff && (local2_4->flags & COMBAT_FLAGS_PLAYER) != 0 && local2_4->entityIdx == param_1)
     {
         ULTIMA_16ba_PrintChar(CTRL_CHAR_TOGGLE_INVERSION);

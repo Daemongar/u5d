@@ -31,7 +31,7 @@ LDLIBS := $(SDL_LIBS) -lm
 ifeq ($(CONFIG),debug)
 CFLAGS += -O0 -g -D_DEBUG
 else ifeq ($(CONFIG),asan)
-CFLAGS += -O1 -g -D_DEBUG -fno-omit-frame-pointer -fsanitize=address,undefined
+CFLAGS += -O1 -g -D_DEBUG -fno-omit-frame-pointer -fsanitize=address,undefined -fsanitize-recover=address
 LDFLAGS += -fsanitize=address,undefined
 else
 CFLAGS += -O2 -DNDEBUG
