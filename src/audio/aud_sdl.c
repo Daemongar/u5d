@@ -124,16 +124,23 @@ void AUDIO_SDL_Cleanup(void)
 
 void AUDIO_SDL_LoadBgmTable(void)
 {
+    // Tracks may be either .ogg or .mp3; .ogg wins if both exist.
+    static const char* const exts[] = { "ogg", "mp3" };
+
     for (int i = 1; i <= 15; i++)
     {
         char fileName[256] = {0,};
-        sprintf(fileName, "BGM/%02d.ogg", i);
-        s_bgm[i] = MIX_LoadAudio(s_mixer, fileName, false);
 
-        const char* err = SDL_GetError();
-        if (err)
+        s_bgm[i] = NULL;
+        for (int e = 0; e < ARRAYSIZE(exts) && !s_bgm[i]; e++)
         {
-            puts(err);
+            sprintf(fileName, "BGM/%02d.%s", i, exts[e]);
+            s_bgm[i] = MIX_LoadAudio(s_mixer, fileName, false);
+        }
+
+        if (!s_bgm[i])
+        {
+            printf("Couldn't load BGM/%02d.ogg or .mp3: %s\n", i, SDL_GetError());
         }
     }
 }
