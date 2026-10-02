@@ -1,0 +1,51 @@
+# Linux (SDL3) build. Usage: make -f Makefile.linux [CONFIG=debug]
+#
+# Requires SDL3 and SDL3_mixer discoverable by pkg-config. If they were
+# built from source into ~/.local, that prefix is searched automatically.
+
+CC ?= gcc
+CONFIG ?= release
+
+PKG_CONFIG := PKG_CONFIG_PATH="$(HOME)/.local/lib/pkgconfig:$(PKG_CONFIG_PATH)" pkg-config
+
+# DOS-only sources (matches the files excluded from the Windows build).
+DOS_SRCS := src/audio/aud_adl.c src/audio/aud_cdda.c src/audio/aud_spk.c \
+	src/event/evt_dos.c src/graphics/grap_vga.c src/key/key_dos.c \
+	src/time/pctimer.c src/time/time_dos.c
+SRCS := $(filter-out $(DOS_SRCS),$(wildcard src/*.c src/*/*.c))
+BUILD_DIR := build/linux/$(CONFIG)
+OBJS := $(SRCS:%.c=$(BUILD_DIR)/%.o)
+TARGET := $(BUILD_DIR)/u5linux
+
+SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl3 sdl3-mixer)
+SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl3 sdl3-mixer)
+
+CFLAGS := -Isrc $(SDL_CFLAGS) -MMD -MP
+CFLAGS += -Wall -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
+CFLAGS += -Wno-parentheses -Wno-pointer-sign -Wno-maybe-uninitialized -Wno-char-subscripts
+CFLAGS += -Wno-missing-braces -Wno-unused-value -Wno-unused-label
+CFLAGS += -Werror=implicit-function-declaration -Werror=incompatible-pointer-types
+CFLAGS += -Werror=int-conversion
+LDLIBS := $(SDL_LIBS) -lm
+
+ifeq ($(CONFIG),debug)
+CFLAGS += -O0 -g -D_DEBUG
+else
+CFLAGS += -O2 -DNDEBUG
+endif
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) -o $@ $(OBJS) $(LDLIBS)
+
+$(BUILD_DIR)/%.o: %.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -rf build/linux
+
+.PHONY: all clean
+
+-include $(OBJS:.o=.d)

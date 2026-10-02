@@ -28,7 +28,7 @@ int FILE_ReadSavegameFile(char* fileName)
     if (!strcmp(fileName, "BRIT.OOL") || !strcmp(fileName, "UNDER.OOL") || !strcmp(fileName, "SAVED.OOL") ||
         !strcmp(fileName, "SAVED.GAM"))
     {
-        sprintf(buf, "SAVEGAME\\%s", fileName);
+        sprintf(buf, "SAVEGAME" PATH_SEP "%s", fileName);
         fileName = buf;
     }
 
@@ -188,9 +188,9 @@ int FILE_WriteSavegameFile(char* fileName)
     {
 #if defined(ENABLE_BUG_FIX)
         // BUGFIX: the SAVEGAME directory is never created, so writes here silently fail
-        CreateDirectoryA("SAVEGAME", NULL);
+        u5_mkdir("SAVEGAME");
 #endif
-        sprintf(buf, "SAVEGAME\\%s", fileName);
+        sprintf(buf, "SAVEGAME" PATH_SEP "%s", fileName);
         fileName = buf;
     }
 

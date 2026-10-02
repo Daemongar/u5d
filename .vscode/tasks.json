@@ -2,21 +2,37 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build u5win (Release x64)",
+            "label": "Build (Release)",
             "type": "shell",
-            "command": "powershell.exe",
-            "args": [
-                "-NoProfile",
-                "-ExecutionPolicy", "Bypass",
-                "-File", "${workspaceFolder}/tools/build_windows.ps1",
-                "-Configuration", "Release",
-                "-Platform", "x64"
-            ],
+            "windows": {
+                "command": "powershell.exe",
+                "args": [
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    "${workspaceFolder}/tools/build_windows.ps1",
+                    "-Configuration",
+                    "Release",
+                    "-Platform",
+                    "x64"
+                ],
+                "problemMatcher": "$msCompile"
+            },
+            "linux": {
+                "command": "make",
+                "args": [
+                    "-f",
+                    "Makefile.linux",
+                    "-j",
+                    "CONFIG=release"
+                ],
+                "problemMatcher": "$gcc"
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": "$msCompile",
             "presentation": {
                 "reveal": "always",
                 "panel": "shared",
@@ -24,18 +40,34 @@
             }
         },
         {
-            "label": "Build u5win (Debug x64)",
+            "label": "Build (Debug)",
             "type": "shell",
-            "command": "powershell.exe",
-            "args": [
-                "-NoProfile",
-                "-ExecutionPolicy", "Bypass",
-                "-File", "${workspaceFolder}/tools/build_windows.ps1",
-                "-Configuration", "Debug",
-                "-Platform", "x64"
-            ],
+            "windows": {
+                "command": "powershell.exe",
+                "args": [
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    "${workspaceFolder}/tools/build_windows.ps1",
+                    "-Configuration",
+                    "Debug",
+                    "-Platform",
+                    "x64"
+                ],
+                "problemMatcher": "$msCompile"
+            },
+            "linux": {
+                "command": "make",
+                "args": [
+                    "-f",
+                    "Makefile.linux",
+                    "-j",
+                    "CONFIG=debug"
+                ],
+                "problemMatcher": "$gcc"
+            },
             "group": "build",
-            "problemMatcher": "$msCompile",
             "presentation": {
                 "reveal": "always",
                 "panel": "shared",

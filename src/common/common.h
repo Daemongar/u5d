@@ -22,7 +22,17 @@ typedef int32_t s32;
 
 typedef uint8_t byte;
 typedef uint16_t word;
+
+#if defined(OS_LINUX) || defined(OS_MACOS)
+// glibc/BSD <sys/types.h> already typedefs uint as a 32-bit unsigned int.
+// Pull it in first, then shadow the name so game code keeps the 16-bit
+// DOS-era uint.
+#include <sys/types.h>
+typedef uint16_t u5_uint;
+#define uint u5_uint
+#else
 typedef uint16_t uint;
+#endif
 
 #else
 
@@ -140,8 +150,44 @@ extern void CDECL debug(char* str, ...);
 
 #if defined(COMPILER_MSVC)
 #define u5_itoa _itoa
+#elif defined(OS_LINUX) || defined(OS_MACOS)
+// glibc and libSystem have no itoa.
+static inline char* u5_itoa(int value, char* str, int radix)
+{
+    static const char digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+    char tmp[34];
+    char* out = str;
+    int i = 0;
+    unsigned int v = (radix == 10 && value < 0) ? -(unsigned int)value : (unsigned int)value;
+
+    if (radix == 10 && value < 0)
+        *out++ = '-';
+    do
+    {
+        tmp[i++] = digits[v % radix];
+        v /= radix;
+    } while (v != 0);
+    while (i > 0)
+        *out++ = tmp[--i];
+    *out = '\0';
+    return str;
+}
 #else
 #define u5_itoa itoa
+#endif
+
+#if defined(OS_LINUX) || defined(OS_MACOS)
+#include <sys/stat.h>
+#define PATH_SEP "/"
+#define u5_mkdir(path) mkdir((path), 0755)
+#elif defined(OS_DOS32)
+#include <sys/stat.h>
+#define PATH_SEP "\\"
+#define u5_mkdir(path) mkdir((path), 0755)
+#else
+#define PATH_SEP "\\"
+// Callers include <Windows.h> before using this.
+#define u5_mkdir(path) CreateDirectoryA((path), NULL)
 #endif
 
 #define ARRAYSIZE(array) ((int)(sizeof(array) / sizeof((array)[0])))

@@ -33,6 +33,20 @@ The game can be played through to the ending using the original data files. Howe
 
 Open `u5win/u5win.slnx` with Visual Studio 2026 and build the solution.
 
+### Linux Target
+
+Requires SDL3 and SDL3_mixer 3.x (the `MIX_*` API). If your distribution doesn't package them, build both from source with CMake and install into `~/.local`, which `Makefile.linux` searches automatically:
+
+```sh
+cmake -S SDL -B SDL/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$HOME/.local
+cmake --build SDL/build -j && cmake --install SDL/build
+cmake -S SDL_mixer -B SDL_mixer/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$HOME/.local \
+      -DCMAKE_PREFIX_PATH=$HOME/.local -DSDLMIXER_VENDORED=OFF
+cmake --build SDL_mixer/build -j && cmake --install SDL_mixer/build
+```
+
+Then build with `make -f Makefile.linux` (or `CONFIG=debug`). The executable is `build/linux/<config>/u5linux`; run it from the directory containing the original game data files.
+
 ### MS-DOS Target (DJGPP)
 
 Run `make` on a machine with DJGPP installed.
