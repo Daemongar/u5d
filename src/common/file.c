@@ -8,6 +8,83 @@
 #include <Windows.h>
 #endif
 
+#if defined(OS_LINUX) || defined(OS_MACOS)
+#include <dirent.h>
+#include <strings.h>
+
+// The game refers to its data files in whatever case it likes ("ibm.ch" vs
+// IBM.CH on disk). DOS and Windows don't care; here, resolve each path
+// component against the directory listing. Components that don't exist are
+// kept as given, so new files are still created with the requested name.
+void FILE_ResolvePath(const char* path, char* out, int outSize)
+{
+    char dirPath[512];
+    const char* p = path;
+
+    out[0] = '\0';
+    if (*p == '/')
+    {
+        strncat(out, "/", outSize - 1);
+        p++;
+    }
+
+    while (*p)
+    {
+        const char* end = strchr(p, '/');
+        int len = end ? (int)(end - p) : (int)strlen(p);
+        char name[256];
+        DIR* dir;
+
+        if (len >= (int)sizeof(name))
+            len = sizeof(name) - 1;
+        memcpy(name, p, len);
+        name[len] = '\0';
+
+        snprintf(dirPath, sizeof(dirPath), "%s", out[0] ? out : ".");
+        dir = opendir(dirPath);
+        if (dir)
+        {
+            struct dirent* ent;
+            while ((ent = readdir(dir)) != NULL)
+            {
+                if (!strcasecmp(ent->d_name, name))
+                {
+                    snprintf(name, sizeof(name), "%s", ent->d_name);
+                    break;
+                }
+            }
+            closedir(dir);
+        }
+
+        strncat(out, name, outSize - strlen(out) - 1);
+        if (!end)
+            break;
+        strncat(out, "/", outSize - strlen(out) - 1);
+        p = end + 1;
+    }
+}
+
+FILE* FILE_Open(const char* path, const char* mode)
+{
+    char resolved[512];
+    FILE* fp = fopen(path, mode);
+
+    if (fp)
+        return fp;
+
+    FILE_ResolvePath(path, resolved, sizeof(resolved));
+    return fopen(resolved, mode);
+}
+#else
+void FILE_ResolvePath(const char* path, char* out, int outSize)
+{
+    strncpy(out, path, outSize - 1);
+    out[outSize - 1] = '\0';
+}
+
+FILE* FILE_Open(const char* path, const char* mode) { return fopen(path, mode); }
+#endif
+
 int FILE_ReadU32LE(FILE* fp, u32* out)
 {
     u8 b[4];
@@ -97,7 +174,7 @@ int FILE_ReadFile(char* fileName, void* buffer, uint size, int offset)
         fileName = buf;
     }
 
-	stream = fopen(fileName, "rb");
+	stream = FILE_Open(fileName, "rb");
 	if (stream == 0)
 	{
 		return -1;
@@ -126,7 +203,7 @@ int FILE_WriteFile(char* fileName, void* buffer, uint size, int offset)
         fileName = buf;
     }
 
-    stream = fopen(fileName, "wb");
+    stream = FILE_Open(fileName, "wb");
     if (stream == 0)
     {
         return -1;

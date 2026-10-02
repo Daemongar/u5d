@@ -3,6 +3,10 @@
 
 #include <stdio.h>
 
+// fopen that tolerates case mismatches between requested and on-disk names.
+FILE* FILE_Open(const char* path, const char* mode);
+void FILE_ResolvePath(const char* path, char* out, int outSize);
+
 int FILE_ReadU32LE(FILE* fp, u32* out);
 int FILE_ReadU16LE(FILE* fp, u16* out);
 int FILE_ReadU8(FILE* fp, u8* out);

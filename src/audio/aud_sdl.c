@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/file.h"
 
 #include "audio.h"
 #include "aud_ops.h"
@@ -134,8 +135,10 @@ void AUDIO_SDL_LoadBgmTable(void)
         s_bgm[i] = NULL;
         for (int e = 0; e < ARRAYSIZE(exts) && !s_bgm[i]; e++)
         {
+            char resolved[256];
             sprintf(fileName, "BGM/%02d.%s", i, exts[e]);
-            s_bgm[i] = MIX_LoadAudio(s_mixer, fileName, false);
+            FILE_ResolvePath(fileName, resolved, sizeof(resolved));
+            s_bgm[i] = MIX_LoadAudio(s_mixer, resolved, false);
         }
 
         if (!s_bgm[i])
@@ -155,8 +158,10 @@ void AUDIO_SDL_LoadSfxTable(void)
         {
             continue;
         }
+        char resolved[256];
         sprintf(fileName, "SFX/%s", r->fileName);
-        s_sfx[r->sfxId] = MIX_LoadAudio(s_mixer, fileName, true);
+        FILE_ResolvePath(fileName, resolved, sizeof(resolved));
+        s_sfx[r->sfxId] = MIX_LoadAudio(s_mixer, resolved, true);
     }
 }
 

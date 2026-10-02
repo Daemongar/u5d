@@ -6,6 +6,7 @@
 
 #include "grap_drv.h"
 
+#include "common/file.h"
 #include "common/lzw.h"
 #include "key/key.h"
 #include "time/time.h"
@@ -178,7 +179,7 @@ void* ULTIMA_125d_LoadResourceFileImpl(char* file_name)
 
     debug("ULTIMA_125d_ReadFileImpl(%s)", file_name);
 
-    fp = fopen(file_name, "rb");
+    fp = FILE_Open(file_name, "rb");
     if (!fp)
         return NULL;
 
@@ -266,7 +267,7 @@ int ULTIMA_1674_TestOpenFile(char* file_name)
     debug("ULTIMA_1674_TestOpenFile(%s)", file_name);
 
 #if !defined(TARGET_DOS16)
-    FILE* fp = fopen(file_name, "r");
+    FILE* fp = FILE_Open(file_name, "r");
     if (fp)
     {
         fclose(fp);

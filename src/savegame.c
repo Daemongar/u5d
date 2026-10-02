@@ -32,7 +32,7 @@ int FILE_ReadSavegameFile(char* fileName)
         fileName = buf;
     }
 
-    stream = fopen(fileName, "rb");
+    stream = FILE_Open(fileName, "rb");
     if (!stream)
         return -1;
 
@@ -194,7 +194,7 @@ int FILE_WriteSavegameFile(char* fileName)
         fileName = buf;
     }
 
-    stream = fopen(fileName, "wb");
+    stream = FILE_Open(fileName, "wb");
     if (!stream)
         return -1;
 

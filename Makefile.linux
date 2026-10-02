@@ -1,4 +1,4 @@
-# Linux (SDL3) build. Usage: make -f Makefile.linux [CONFIG=debug]
+# Linux (SDL3) build. Usage: make -f Makefile.linux [CONFIG=debug|asan]
 #
 # Requires SDL3 and SDL3_mixer discoverable by pkg-config. If they were
 # built from source into ~/.local, that prefix is searched automatically.
@@ -30,6 +30,9 @@ LDLIBS := $(SDL_LIBS) -lm
 
 ifeq ($(CONFIG),debug)
 CFLAGS += -O0 -g -D_DEBUG
+else ifeq ($(CONFIG),asan)
+CFLAGS += -O1 -g -D_DEBUG -fno-omit-frame-pointer -fsanitize=address,undefined
+LDFLAGS += -fsanitize=address,undefined
 else
 CFLAGS += -O2 -DNDEBUG
 endif
@@ -37,7 +40,7 @@ endif
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) -o $@ $(OBJS) $(LDLIBS)
+	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
 $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(@D)
