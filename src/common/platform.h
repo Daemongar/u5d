@@ -111,6 +111,11 @@
 // (intel/2 -> (intel+1)/2), everywhere mag is set for CLASS_BARD.
 //#define ENABLE_BARD_MANA_ROUNDUP 1
 
+// Let Vas Mani (Great Heal) work during a fight. The original refused it
+// until "VICTORY!" even though the spell table lists it as usable in combat,
+// so casting it mid-battle just wasted the mixture and MP.
+//#define ENABLE_VAS_MANI_IN_COMBAT 1
+
 #if defined(TARGET_DOS16)
 #define MATCHING_BUILD 1
 #else
@@ -133,6 +138,7 @@
 #define ENABLE_ENHANCED_PALETTE 1
 #define ENABLE_CLASS_STAT_GROWTH 1
 #define ENABLE_BARD_MANA_ROUNDUP 1
+#define ENABLE_VAS_MANI_IN_COMBAT 1
 //#define ENABLE_TRANSLATION 1
 #endif
 

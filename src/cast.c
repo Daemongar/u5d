@@ -628,6 +628,12 @@ static int CAST_08ac(void)
     {
         local_4 = -1;
     }
+#if defined(ENABLE_VAS_MANI_IN_COMBAT)
+    else if (D_55a8_party[local_6].status == STATUS_DEAD)
+    {
+        local_4 = 0;
+    }
+#else
     else if (D_55a8_party[local_6].status == STATUS_DEAD || (D_5893_map_id > 0x7f && D_58a3 == 0))
     {
         local_4 = 0;
@@ -636,6 +642,7 @@ static int CAST_08ac(void)
     {
         local_4 = 0;
     }
+#endif
     else
     {
         D_55a8_party[local_6].hp = D_55a8_party[local_6].maxHp;
@@ -732,6 +739,15 @@ static int CAST_0a5c(void)
         return 0;
     }
 
+#if defined(ENABLE_BUG_FIX)
+    // BUGFIX: unlike Charm and the earthquake spell this never checked the
+    // target, so it could erase a party member and spawn a hostile creature
+    if ((D_ba14[local_4].flags & COMBAT_FLAGS_PLAYER) != 0)
+    {
+        return 0;
+    }
+#endif
+
     if (CAST_0000(local_4) == 0 && COMSUBS_0000(D_589e, local_4, 0) == 0)
     {
         local_6 = D_ba14[local_4].x;
@@ -771,10 +787,22 @@ static int CAST_0b28(void)
 
     CAST2_0000_CastEffect(7);
     local_6 = COMSUBS_0748(D_5899, D_589a);
+#if defined(ENABLE_BUG_FIX)
+    // BUGFIX: the result was left uninitialized when no free slot exists
+    local_8 = 0;
+#endif
     if (local_6 < 0)
     {
         local_8 = 0;
     }
+#if defined(ENABLE_BUG_FIX)
+    // BUGFIX: a cloned party member shares the original's character record,
+    // so killing the clone killed the real character. Refuse party members.
+    else if ((D_ba14[local_6].flags & COMBAT_FLAGS_PLAYER) != 0)
+    {
+        local_8 = 0;
+    }
+#endif
     else
     {
         // 0b72
@@ -799,6 +827,30 @@ static int CAST_0b28(void)
                 }
             }
 
+#if defined(ENABLE_BUG_FIX)
+            // BUGFIX: the placement loop below never gave up, hanging the game
+            // when there was nowhere to put the clone. Find a spot first, with
+            // the same 8 tries the other summoning spells use.
+            if (local_4 != 0xff)
+            {
+                for (local_a = 0; local_a < 8; local_a++)
+                {
+                    if (COMBAT_120e() != 0 && COMBAT_0000(TILE_ACTOR_AVATAR, D_5876, D_5878) != 0)
+                        break;
+                }
+
+                if (local_a < 8)
+                {
+                    D_ba14[local_4] = D_ba14[local_6];
+                    D_ba14[local_4].actorIdx = local_c;
+                    D_5c5a[local_c] = D_5c5a[D_ba14[local_6].actorIdx];
+
+                    D_5c5a[local_c]._2_x = D_ba14[local_4].x = D_5876;
+                    D_5c5a[local_c]._3_y = D_ba14[local_4].y = D_5878;
+                    local_8 = 1;
+                }
+            }
+#else
             if (local_4 != 0xff)
             {
                 // 0bbc
@@ -822,6 +874,7 @@ static int CAST_0b28(void)
                     }
                 } while (local_8 == 0);
             }
+#endif
         }
     }
 
@@ -2106,6 +2159,8 @@ static void CAST_1f60(int param_1, int param_2, int param_3)
     local_10e = CAST2_0306(param_1); // NOTE: original code error?
 #endif
 #if !defined(MATCHING_BUILD) // added in FMT
+    // Choosing "Pass" (0) as the direction froze the original DOS game: the
+    // storm's rays never moved, so the drawing loop never finished.
     if (local_10e != 0)
 #endif
     {
