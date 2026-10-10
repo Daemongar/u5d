@@ -105,6 +105,8 @@ Bard mana rounds up.
 Vas Mani (Great Heal) works during combat.
 Casting a spell you lack the MP or level for no longer uses up the mixture or MP ("M.P. too low!" / "Level too low!").
 Cancelling a spell's target, crosshair, or choosing "Pass" for its direction refunds the mixture and MP.
+Poisoned characters no longer die overnight at an inn; they wake healed but still poisoned.
+Level-ups grant one stat point per level gained, so skipping levels between apparitions no longer loses points.
 Game speed is corrected for modern computers.
 Bug fixes
 
@@ -113,6 +115,8 @@ Clone (In Quas Xen) no longer freezes the game or creates a clone that kills a p
 Rel Xen Bet can't turn party members into enemies.
 Choosing "Pass" with a storm spell no longer freezes the game.
 Several out-of-bounds memory reads from the original code are fixed.
+Characters imported from Ultima IV are limited to Ultima V's stat and HP caps, fixing broken shop prices and an 800-HP Avatar.
+A level-up can no longer lower a stat that is already above the cap.
 All gameplay changes and fixes can be switched off in platform.h to get the original behavior. A separate DOS build can still reproduce the original program exactly.
 Sound effects are synthesized in software (`src/audio/aud_sdl.c`) from the parameters the original driver already dispatches (`AUDIO_DispatchPulse`/`Noise`/`Tone`/`SweepTone`), rather than played back from sampled `SFX/*.wav` files - no extra assets required. A handful of IDs with no reachable dispatch path (`mirror`, `drip1`, `drip2`) remain silent.
 
@@ -160,6 +164,41 @@ Things learned about the original PC-DOS game while working on the source. They 
   - **Captured alone:** the Avatar is spared ("I sense Truth in thee") for the mantra, or thrown in the dungeon for a lie.
   - **The victim is always the first living companion in party order**, so either answer costs a companion whenever one is present.
 - **Executed companions are gone for good.** They are removed from the party and marked; the Shrine of the Codex later shows an urn for each ("Thou dost see an urn marked: …"). Nothing in the game brings them back.
+
+### Shops
+
+- **Prices use the shopping character's Intelligence:** price = base × (200 − 3 × INT) / 100, using the active character (or the first able member). Even at the maximum INT of 30 everything costs 110% of base; selling pays INT × 3% of the same base.
+- **At INT 30, cheap items** (Dagger, Club, Spear, Flaming Oil, Throwing Axe) sell back for exactly what they cost, because the markup rounds down and the sale price adds 1 gold.
+- **Merchants refuse riders:** "GET THAT HORSE OUT OF HERE!"
+
+### Inns and Resting
+
+- **Poisoned characters died overnight at an inn**, even the Avatar: the game restored them to full HP and mana, then announced they had "passed away". `ENABLE_NO_INN_POISON_DEATH` lets them wake still poisoned.
+- **Being put to sleep cures poison.** Status is a single value, so sleep replaces "poisoned" and waking sets "good"; a monster's sleep spell (or In Zu) cures poison that an inn bed would have made fatal.
+- **A night's rest is charged per party member, dead ones included.**
+- **Companions left at an inn take up its rooms**, so storing enough of them there makes the inn report "no room available" when the party tries to rest.
+- **Poison costs 1 HP per turn, but only while awake.**
+
+### Levelling Up
+
+- **Promotion is random.** Levels are only granted by an apparition that appears with a 25% chance when camping; inns never summon it, so a character can have the experience for a level and still wait several rests.
+- **The apparition fully heals and cures the party** whether or not anyone levels.
+- **One stat point per visit, not per level:** jumping from level 2 to 4 between visits granted one point. `ENABLE_STAT_PER_LEVEL` grants one per level.
+- **Max HP is level × 30 for every class**; Strength and class play no part.
+- **Levels follow experience by doubling:** 100, 200, 400, 800, 1600, 3200 and 6400 experience for levels 2 to 8.
+
+### Ultima IV Import
+
+- **A new game can import the Avatar from an Ultima IV save**, copying Strength, Dexterity, Intelligence, HP, max HP and experience. The import only rejected stats above 70 or HP above 9999, while Ultima V caps stats at 30 and max HP at 240.
+- **Above INT 33 the shop price formula overflows** (it mixes signed and unsigned arithmetic): every item costs about 23,600 gold. Above INT 37 selling pays more than the base price, so buying with a lower-INT companion and selling with the Avatar made unlimited gold.
+- **"Thou art now… wiser!" could lower a stat:** the level-up bonus capped the stat at 30, cutting an imported 50 down to 30.
+- **An imported Avatar kept up to 800 max HP** until death or resurrection recalculated it to level × 30.
+- All of these are fixed under `ENABLE_BUG_FIX` by clamping imported values to Ultima V's limits.
+
+### Food
+
+- **Food is eaten at 06:00, 12:00 and 18:00**, one ration per awake, living party member; sleeping companions don't eat.
+- **With no food, every living member takes 1–8 damage each hour.**
 
 ### Odds and Ends
 
