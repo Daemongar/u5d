@@ -2,20 +2,17 @@
 
 ## Introduction
 
-This is an ongoing decompilation project of Ultima V: Warriors of Destiny.
+This is an update to U5 decompiled st https://github.com/drcarademono/impera
 
-Inspired by [u4-decompiled](https://github.com/ergonomy-joe/u4-decompiled), I started this project as a personal challenge to better understand the original game and its codebase.
+This is a bug fix and graphics update (640x480 with 32x32 pixel tiles, and full color tiles.)
 
 ## Goals
 
-- Create a functionally equivalent version of the original game that can run on modern platforms.
-
-- Match as much of the original code (v1.16 for MS-DOS) as possible.
-
-Since the original linker (an unknown version of PLINK86) has not been found, perfect binary matching is currently impossible. Instead, the project focuses on assembly-level semantic matching.
-
-When necessary, disassemblies from other platforms such as FM-TOWNS are also used as references.
-
+- Update the game to fix any bugs (armor, spell, etc)
+- Continue to work on the graphics and audio
+- Maintain this build so it runs on Linux and Windows without Dosbox or any emulator
+- Instead of all NPCs being different classes but effectively the same, make the classes truly different
+  
 ## Current Status
 
 ### Matching Progress
@@ -25,7 +22,7 @@ When necessary, disassemblies from other platforms such as FM-TOWNS are also use
 
 ### Playability
 
-The game can be played through to the ending using the original data files. However, major and minor bugs may still remain throughout the game.
+The game can be played through to the ending using the original data files. I'm working on fixing spell problems, bugs, and issues with the PC version
 
 ## Building
 
