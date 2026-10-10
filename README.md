@@ -109,6 +109,7 @@ Poisoned characters no longer die overnight at an inn; they wake healed but stil
 Level-ups grant one stat point per level gained, so skipping levels between apparitions no longer loses points.
 Rings of Invisibility and Regeneration can crumble when equipped (1 in 16), a feature the original disabled by a typo.
 Druid, Paladin, Ranger and Tinker characters imported from Ultima IV now regain mana.
+Overworld footsteps vary by terrain (grass, brush, forest, swamp, desert, hills, mountains, roads) instead of one click everywhere.
 Game speed is corrected for modern computers.
 Bug fixes
 
@@ -208,6 +209,7 @@ Things learned about the original PC-DOS game while working on the source. They 
 - **"Ring vanishes!" never happened.** Equipping a Ring of Invisibility or Regeneration was meant to have a 1-in-16 chance of the ring crumbling, but the check compares the number of rings owned with the item IDs (42 and 44). `ENABLE_VANISHING_RINGS` restores it.
 - **The Ring of Protection and Spiked Collar did nothing in DOS.** Their only effect is +2 defense, and armor never applied in combat.
 - **An empty FLAMES module.** The game ships `FLAMES.OVL`, a 32-byte overlay whose only routine does nothing; its name hints at a cut effect or scene.
+- **One footstep for every terrain.** Overworld movement always plays the same two white-noise clicks, whatever the ground; only riding a horse doubles them, and ships are silent. `ENABLE_TERRAIN_FOOTSTEPS` varies the sound by the tile entered.
 - **System keys:** Ctrl+V prints the version ("1.16"), Ctrl+S toggles sound, Ctrl+B toggles keyboard buffering, Ctrl+E quits, and Ctrl+K prints karma.
 
 ### Odds and Ends
