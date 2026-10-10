@@ -8,3 +8,5 @@
 *.d
 *.OBJ
 /build
+/BGM/
+LOG.TXT
