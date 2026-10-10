@@ -1,4 +1,4 @@
-# u5d - Ultima V Decompilation Project
+# u5d - Fixes to the original geme
 
 ## Introduction
 
