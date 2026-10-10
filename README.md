@@ -75,4 +75,41 @@ Note: executable linking is currently not possible. This target is used only for
 
 The SDL targets (Windows and Linux) expect background music as `BGM/01`-`15` (`.ogg` or `.mp3`) in the directory the game is run from (see `src/audio/aud_sdl.c`). These aren't included in this repository. `u5win/ULTMVMSC.P00` is a Commodore 64 program (Minstrel Dragon / UDIC's "Lost Music") containing 15 selectable Ultima V tracks; run `tools/extract_bgm.ps1` (requires VICE and ffmpeg) to render them to the expected `.ogg` files.
 
+## Change Details
+Ultima V: Changes from the PC-DOS Version
+Platforms
+
+Native Windows and Linux versions, rebuilt from decompiled source and using SDL3.
+Borderless fullscreen by default, or windowed with fullscreen=0 in ultima5.ini.
+Data files load regardless of upper/lower case in their names.
+Graphics
+
+Rendered at 640×400 with 32×32 tiles instead of 320×200.
+An optional full-color tile set (TILES.BMP) replaces any of the original 16-color tiles.
+A softer, less oversaturated version of the 16-color palette.
+Sound
+
+Background music from the Commodore 64 version's soundtrack, as .ogg or .mp3 files.
+PC-speaker sound effects are recreated in software.
+Gameplay
+
+Armor now reduces combat damage. In DOS it had no effect.
+Mouse aiming in combat.
+Easier conversations: keywords aren't case-sensitive, long replies page automatically, and keyword hints are shown.
+Smarter monster targeting.
+The whole party earns experience for kills, with a bonus for fighting groups.
+Brighter nights outdoors.
+Esc opens the quit prompt.
+Level-up stat gains are weighted by class.
+Bard mana rounds up.
+Vas Mani (Great Heal) works during combat.
+Game speed is corrected for modern computers.
+Bug fixes
+
+Saving works: the save folder is now created.
+Clone (In Quas Xen) no longer freezes the game or creates a clone that kills a party member when it dies.
+Rel Xen Bet can't turn party members into enemies.
+Choosing "Pass" with a storm spell no longer freezes the game.
+Several out-of-bounds memory reads from the original code are fixed.
+All gameplay changes and fixes can be switched off in platform.h to get the original behavior. A separate DOS build can still reproduce the original program exactly.
 Sound effects are synthesized in software (`src/audio/aud_sdl.c`) from the parameters the original driver already dispatches (`AUDIO_DispatchPulse`/`Noise`/`Tone`/`SweepTone`), rather than played back from sampled `SFX/*.wav` files - no extra assets required. A handful of IDs with no reachable dispatch path (`mirror`, `drip1`, `drip2`) remain silent.
