@@ -6,6 +6,7 @@
 
 #include <string.h>
 
+#include "cast2.h"
 #include "combat.h"
 #include "comsubs.h"
 #include "sjog.h"
@@ -471,6 +472,9 @@ int COMSUBS_0504(int param_1, int param_2)
     if (local_e)
     {
         ULTIMA_16ba_PrintChar(10);
+#if defined(ENABLE_NO_WASTED_CASTS)
+        g_castPromptCancelled = 1;
+#endif
         return 0;
     }
 

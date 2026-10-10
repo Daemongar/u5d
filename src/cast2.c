@@ -29,6 +29,10 @@ void CAST2_0000_CastEffect(int param_1)
     }
 }
 
+#if defined(ENABLE_NO_WASTED_CASTS)
+int g_castPromptCancelled;
+#endif
+
 // OK P1
 int CAST2_009e_OnWho(void)
 {
@@ -40,6 +44,9 @@ int CAST2_009e_OnWho(void)
     if (local_4 < 0)
     {
         ULTIMA_1850_PrintString(_TEXT(0x94fe, "None!"));
+#if defined(ENABLE_NO_WASTED_CASTS)
+        g_castPromptCancelled = 1;
+#endif
     }
     else
     {
@@ -264,6 +271,9 @@ int CAST2_0306(void)
         case U5_KEY_SPACE:
             ULTIMA_1850_PrintString(_TEXT(0x952c, "Pass\n"));
             local_6 = 0;
+#if defined(ENABLE_NO_WASTED_CASTS)
+            g_castPromptCancelled = 1;
+#endif
             break;
         default:
             local_4 = 0;

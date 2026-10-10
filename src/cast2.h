@@ -18,4 +18,10 @@ void CAST2_08f8(int param_1, int param_2, int param_3);
 void CAST2_0e76_Shrine(void);
 void CAST2_10fe_SaveGame(void);
 
+#if defined(ENABLE_NO_WASTED_CASTS)
+// Set when the player backs out of a spell's target or direction prompt, so
+// the cast command can refund the mixture and MP.
+extern int g_castPromptCancelled;
+#endif
+
 #endif

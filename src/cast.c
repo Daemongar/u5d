@@ -1086,6 +1086,9 @@ int CAST_0dba_CastSpellCmd(void)
         }
         else
         {
+#if defined(ENABLE_NO_WASTED_CASTS)
+            g_castPromptCancelled = 0;
+#endif
             switch (local_4)
             {
             case 0:
@@ -1274,6 +1277,18 @@ int CAST_0dba_CastSpellCmd(void)
             }
         }
     }
+
+#if defined(ENABLE_NO_WASTED_CASTS)
+    // Backing out of the target or direction prompt refunds the cast.
+    if (g_castPromptCancelled)
+    {
+        g_castPromptCancelled = 0;
+        D_57f0[local_4]++;
+        D_55a8_party[local_6].mag += local_a;
+        ULTIMA_2900_UpdateVitalsDisplay();
+        local_c = -1;
+    }
+#endif
 
     if (local_c == 1)
     {
