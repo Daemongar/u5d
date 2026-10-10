@@ -3,6 +3,7 @@
 #include "common/file.h"
 #include "common/options.h"
 
+#include "app_icon.h"
 #include "grap_buf.h"
 #include "grap_ops.h"
 #include "origin.h"
@@ -160,6 +161,15 @@ void GRAP_SDL_Initialize(void)
     }
 
     SDL_CreateWindowAndRenderer("Ultima V: Warriors of Destiny", windowWidth, windowHeight, windowFlags, &s_sdlWindow, &s_sdlRenderer);
+
+    // Window and taskbar icon: the ankh from tools/make_icon.py.
+    SDL_Surface* icon = SDL_CreateSurfaceFrom(APP_ICON_SIZE, APP_ICON_SIZE, SDL_PIXELFORMAT_RGBA32,
+                                              (void*)g_appIcon, APP_ICON_SIZE * 4);
+    if (icon != NULL)
+    {
+        SDL_SetWindowIcon(s_sdlWindow, icon);
+        SDL_DestroySurface(icon);
+    }
 
     if (windowMode == OPTION_WINDOW_WINDOWED)
     {

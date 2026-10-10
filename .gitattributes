@@ -10,3 +10,5 @@
 *.rp9 binary
 *.P00 binary
 *.bmp binary
+*.ico binary
+*.png binary

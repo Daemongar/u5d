@@ -343,6 +343,7 @@
     <ClInclude Include="..\src\options_menu.h" />
     <ClInclude Include="..\src\common\options.h" />
     <ClInclude Include="..\src\graphics\tile_colors.h" />
+    <ClInclude Include="..\src\graphics\app_icon.h" />
     <ClInclude Include="..\src\cmds.h" />
     <ClInclude Include="..\src\combat.h" />
     <ClInclude Include="..\src\combat_gen.h" />
@@ -397,6 +398,12 @@
     <ClInclude Include="..\src\translate.h" />
     <ClInclude Include="..\src\vars.h" />
     <ClInclude Include="..\src\zstats.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="u5win.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="u5win.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

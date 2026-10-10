@@ -452,4 +452,10 @@
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="u5win.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="u5win.ico" />
+  </ItemGroup>
 </Project>
