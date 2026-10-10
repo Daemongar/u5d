@@ -1,5 +1,6 @@
 #include "common/common.h"
 
+#include "graphics/grap_buf.h"
 #include "vars.h"
 #include "macros.h"
 
@@ -114,10 +115,8 @@ extern bool COMSUBS_AimCancel(void);
 extern int windowWidth;
 extern int windowHeight;
 
-// The combat map viewport is an 11x11 grid of 16px lores tiles in the
-// top-left corner of the (320x200 lores / 640x400 hires) screen; see
-// ULTIMA_56ac_DrawMap (src/5000.c) and GRAP_BUF_PutTile (src/graphics/grap_buf.c).
-#define COMBAT_MAP_TILE_PX 16
+// The combat map viewport is an 11x11 grid of 32px tiles in the 640x400 render.
+#define COMBAT_MAP_TILE_PX tilePixelSize
 #define COMBAT_MAP_TILES 11
 
 static bool MousePosToTile(float mx, float my, int* outTileX, int* outTileY)
@@ -125,11 +124,11 @@ static bool MousePosToTile(float mx, float my, int* outTileX, int* outTileY)
     if (windowWidth <= 0 || windowHeight <= 0)
         return false;
 
-    int loresX = (int)(mx * 320.0f / (float)windowWidth);
-    int loresY = (int)(my * 200.0f / (float)windowHeight);
+    int renderX = (int)(mx * renderWidth / (float)windowWidth);
+    int renderY = (int)(my * renderHeight / (float)windowHeight);
 
-    int tileX = loresX / COMBAT_MAP_TILE_PX;
-    int tileY = loresY / COMBAT_MAP_TILE_PX;
+    int tileX = renderX / COMBAT_MAP_TILE_PX;
+    int tileY = renderY / COMBAT_MAP_TILE_PX;
 
     if (tileX < 0 || tileX >= COMBAT_MAP_TILES || tileY < 0 || tileY >= COMBAT_MAP_TILES)
         return false;

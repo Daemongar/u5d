@@ -11,14 +11,22 @@
 
 #define hiresPackedStride 80
 
+// Keep legacy game coordinates while rendering 32px tiles at 640x400.
 #define loresToHiresRatio 2
+#define renderWidth (loresWidth * loresToHiresRatio)
+#define renderHeight (loresHeight * loresToHiresRatio)
+#define tilePixelSize 32
+#define tileSourcePixelSize (tilePixelSize / loresToHiresRatio)
 
 extern u8* g_linearEgaBuffer0;
 extern u8* g_linearEgaBuffer1;
 extern u8* g_linearOverlayBuffer;
+extern u32* g_linearColorPixels0;
+extern u8* g_linearColorMask0;
 
 typedef void pfGrapFlushFrame(void);
 
+extern void GRAP_BUF_LoadColorTileAtlas(u32* pixels, int columns, int tileCount);
 extern void GRAP_BUF_Initialize(pfGrapFlushFrame* pfFlushFrame);
 extern void GRAP_BUF_Cleanup(void);
 extern void GRAP_BUF_Present(void);

@@ -78,7 +78,13 @@ void GRAP_VGA_FlushFrame(void)
 
     frameBuffer = (byte*)(0xa0000 + __djgpp_conventional_base);
 
-    memcpy(frameBuffer, g_linearEgaBuffer0, 320 * 200);
+    for (int y = 0; y < loresHeight; y++)
+    {
+        for (int x = 0; x < loresWidth; x++)
+        {
+            frameBuffer[y * loresWidth + x] = g_linearEgaBuffer0[(y * loresToHiresRatio) * renderWidth + x * loresToHiresRatio];
+        }
+    }
 
     __djgpp_nearptr_disable();
 }

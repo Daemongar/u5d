@@ -47,6 +47,19 @@ cmake --build SDL_mixer/build -j && cmake --install SDL_mixer/build
 
 Then build with `make -f Makefile.linux` (or `CONFIG=debug`). The executable is `build/linux/<config>/u5linux`; run it from the directory containing the original game data files.
 
+### Optional Full-Color Tiles
+
+The SDL builds can load an optional `TILES.BMP` atlas from the game data directory.
+Use a 24-bit or 32-bit BMP arranged as a row-major grid of 32x32 pixel tiles.
+Tile index 0 is the top-left cell; each following index advances left-to-right,
+then top-to-bottom. The atlas may have any number of columns, but its width and
+height must be multiples of 32. Add cells for the tile indices you want to
+replace; indices not present in the atlas continue using the original tileset.
+
+The full-color atlas is optional and the original 16-color tiles remain the
+default. No additional image libraries are needed. The legacy DOS graphics
+drivers do not load this SDL-specific atlas.
+
 ### MS-DOS Target (DJGPP)
 
 Run `make` on a machine with DJGPP installed.

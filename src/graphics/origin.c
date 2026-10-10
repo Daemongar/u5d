@@ -69,7 +69,9 @@ static void OriginLogoClearLine(int y)
 {
     if (y < loresHeight)
     {
-        memset(&g_linearEgaBuffer0[y * loresWidth], 0, loresWidth);
+        int dstY = y * loresToHiresRatio;
+        memset(&g_linearEgaBuffer0[dstY * renderWidth], 0, renderWidth);
+        memset(&g_linearEgaBuffer0[(dstY + 1) * renderWidth], 0, renderWidth);
     }
 }
 
@@ -78,12 +80,15 @@ static void OriginLogoCopyColoredLineFromBackBuffer(int srcY, int dstY)
 {
     if (srcY < loresHeight && dstY < loresHeight)
     {
-        byte* src = &g_linearEgaBuffer1[srcY * loresWidth];
-        byte* dst = &g_linearEgaBuffer0[dstY * loresWidth];
+        int srcRow = srcY * loresToHiresRatio;
+        int dstRow = dstY * loresToHiresRatio;
+        byte* src = &g_linearEgaBuffer1[srcRow * renderWidth];
+        byte* dst = &g_linearEgaBuffer0[dstRow * renderWidth];
 
-        for (int x = 0; x < loresWidth; x++)
+        for (int x = 0; x < renderWidth; x++)
         {
             dst[x] = src[x] & 9; // blue
+            dst[renderWidth + x] = g_linearEgaBuffer1[(srcRow + 1) * renderWidth + x] & 9;
         }
     }
 }

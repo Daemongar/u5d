@@ -21,11 +21,15 @@ static int s_wdFrame = 0;
 // T1K:12be
 static void WdShowNextFrame(void)
 {
-    int srcY = s_wdFrame * WD_FRAME_SPACING;
+    int srcY = s_wdFrame * WD_FRAME_SPACING * loresToHiresRatio;
+    int dstY = WD_SCREEN_Y * loresToHiresRatio;
+    int copyWidth = WD_FRAME_WIDTH * loresToHiresRatio;
+    int copyHeight = WD_FRAME_HEIGHT * loresToHiresRatio;
 
-    for (int row = 0; row < WD_FRAME_HEIGHT; row++)
+    for (int row = 0; row < copyHeight; row++)
     {
-        memcpy(&g_linearEgaBuffer0[(WD_SCREEN_Y + row) * loresWidth], &g_linearEgaBuffer1[(srcY + row) * loresWidth], loresWidth);
+        memcpy(&g_linearEgaBuffer0[(dstY + row) * renderWidth + WD_FRAME_X * loresToHiresRatio],
+               &g_linearEgaBuffer1[(srcY + row) * renderWidth + WD_FRAME_X * loresToHiresRatio], copyWidth);
     }
 
     s_wdFrame = (s_wdFrame + 1) & 3;
@@ -65,7 +69,16 @@ static void WdCopyFramePixelsFromBackup(byte* backup, int maskX, int maskY)
     for (int frame = 0; frame < WD_FRAME_COUNT; frame++)
     {
         int y = frame * WD_FRAME_SPACING + maskY;
-        g_linearEgaBuffer1[y * loresWidth + x] = backup[y * loresWidth + x];
+        int dstX = (WD_FRAME_X + x) * loresToHiresRatio;
+        int dstY = y * loresToHiresRatio;
+        for (int dy = 0; dy < loresToHiresRatio; dy++)
+        {
+            for (int dx = 0; dx < loresToHiresRatio; dx++)
+            {
+                int offset = (dstY + dy) * renderWidth + dstX + dx;
+                g_linearEgaBuffer1[offset] = backup[offset];
+            }
+        }
     }
 }
 
@@ -133,7 +146,7 @@ void GRAP_BUF_AnimateWD(BitImageView* mask)
 
     GRAP_BUF_FlushPendingPresent();
 
-    pageSize = loresWidth * loresHeight;
+    pageSize = renderWidth * renderHeight;
     backup = malloc(pageSize); // TODO: temp
     if (backup == NULL)
         return;

@@ -1,5 +1,6 @@
 #include "common/common.h"
 #include "common/config.h"
+#include "common/file.h"
 
 #include "grap_buf.h"
 #include "grap_ops.h"
@@ -12,6 +13,9 @@ static SDL_Window* s_sdlWindow;
 static SDL_Renderer* s_sdlRenderer;
 static SDL_Surface* s_sdlSurface;
 static SDL_Texture* s_sdlTexture;
+static Uint32* s_colorTileAtlas;
+static int s_colorTileColumns;
+static int s_colorTileCount;
 
 int windowWidth = 1280;
 int windowHeight = 960;
@@ -38,6 +42,67 @@ void GRAP_SDL_FlushFrame(void);
 
 void AUDIO_SDL_Init(void);
 void AUDIO_SDL_Cleanup(void);
+
+static void LoadColorTileAtlas(void)
+{
+    FILE* fp = FILE_Open("TILES.BMP", "rb");
+    if (fp == NULL)
+        return;
+    fclose(fp);
+
+    char path[512];
+    FILE_ResolvePath("TILES.BMP", path, sizeof(path));
+
+    SDL_Surface* source = SDL_LoadBMP(path);
+    if (source == NULL)
+    {
+        fprintf(stderr, "Couldn't load optional %s: %s\n", path, SDL_GetError());
+        return;
+    }
+
+    if (source->w <= 0 || source->h <= 0 ||
+        source->w % tilePixelSize != 0 || source->h % tilePixelSize != 0)
+    {
+        fprintf(stderr, "%s must be a grid of %dx%d pixel tiles\n", path, tilePixelSize, tilePixelSize);
+        SDL_DestroySurface(source);
+        return;
+    }
+
+    SDL_Surface* converted = SDL_ConvertSurface(source, SDL_PIXELFORMAT_ARGB8888);
+    SDL_DestroySurface(source);
+    if (converted == NULL)
+    {
+        fprintf(stderr, "Couldn't convert %s to 32-bit color: %s\n", path, SDL_GetError());
+        return;
+    }
+
+    s_colorTileColumns = converted->w / tilePixelSize;
+    int rows = converted->h / tilePixelSize;
+    s_colorTileCount = s_colorTileColumns * rows;
+    size_t pixelCount = (size_t)converted->w * (size_t)converted->h;
+    s_colorTileAtlas = malloc(pixelCount * sizeof(*s_colorTileAtlas));
+    if (s_colorTileAtlas == NULL)
+    {
+        fprintf(stderr, "Couldn't allocate color tiles for %s\n", path);
+        SDL_DestroySurface(converted);
+        s_colorTileCount = 0;
+        s_colorTileColumns = 0;
+        return;
+    }
+
+    for (int y = 0; y < converted->h; y++)
+    {
+        const Uint32* src = (const Uint32*)((const Uint8*)converted->pixels + y * converted->pitch);
+        for (int x = 0; x < converted->w; x++)
+        {
+            s_colorTileAtlas[y * converted->w + x] = src[x] & 0x00ffffff;
+        }
+    }
+
+    SDL_DestroySurface(converted);
+    GRAP_BUF_LoadColorTileAtlas(s_colorTileAtlas, s_colorTileColumns, s_colorTileCount);
+    fprintf(stderr, "Loaded %d full-color tiles from %s\n", s_colorTileCount, path);
+}
 
 void GRAP_SDL_Initialize(void)
 {
@@ -85,11 +150,17 @@ void GRAP_SDL_Initialize(void)
     }
 
     GRAP_BUF_Initialize(GRAP_SDL_FlushFrame);
+    LoadColorTileAtlas();
 }
 
 void GRAP_SDL_Cleanup(void)
 {
     GRAP_BUF_Cleanup();
+    GRAP_BUF_LoadColorTileAtlas(NULL, 0, 0);
+    free(s_colorTileAtlas);
+    s_colorTileAtlas = NULL;
+    s_colorTileColumns = 0;
+    s_colorTileCount = 0;
 
     SDL_DestroyTexture(s_sdlTexture);
     SDL_DestroySurface(s_sdlSurface);
@@ -107,15 +178,17 @@ static void LinearToRGB(void)
     Uint32* pixels = s_sdlSurface->pixels;
     int pitch = s_sdlSurface->pitch / 4;
 
-    for (int y = 0; y < loresHeight; y++)
+    for (int y = 0; y < renderHeight; y++)
     {
-        for (int x = 0; x < loresWidth; x++)
+        for (int x = 0; x < renderWidth; x++)
         {
-            Uint32 color = s_egaPalette[g_linearEgaBuffer0[y * loresWidth + x] & 0xf];
-            pixels[(y * 2) * pitch + (x * 2)] = color;
-            pixels[(y * 2) * pitch + (x * 2 + 1)] = color;
-            pixels[(y * 2 + 1) * pitch + (x * 2)] = color;
-            pixels[(y * 2 + 1) * pitch + (x * 2 + 1)] = color;
+            Uint32 color = s_egaPalette[g_linearEgaBuffer0[y * renderWidth + x] & 0xf];
+            int offset = y * renderWidth + x;
+            if (g_linearColorMask0 != NULL && g_linearColorMask0[offset])
+            {
+                color = 0xff000000 | g_linearColorPixels0[offset];
+            }
+            pixels[y * pitch + x] = color;
         }
     }
 

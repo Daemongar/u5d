@@ -19,11 +19,19 @@
 
 int g_enableDebugOverlay = 0;
 
-// 64k
+// 640x400 EGA pixels
 u8* g_linearEgaBuffer0;
 
-// 64k
+// 640x400 EGA pixels
 u8* g_linearEgaBuffer1;
+u32* g_linearColorPixels0;
+u8* g_linearColorMask0;
+
+static u32* s_colorPixels[2];
+static u8* s_colorMask[2];
+static u32* s_colorTileAtlas;
+static int s_colorTileColumns;
+static int s_colorTileCount;
 
 #if defined(ENABLE_GRAP_OVERLAY)
 // 256k
@@ -50,11 +58,19 @@ static u16 s_tileRevealSeed = 0;
 
 void GRAP_BUF_Initialize(pfGrapFlushFrame* pfFlushFrame)
 {
-    g_linearEgaBuffer0 = malloc(loresWidth * loresHeight);
-    memset(g_linearEgaBuffer0, 0, loresWidth * loresHeight);
+    g_linearEgaBuffer0 = malloc(renderWidth * renderHeight);
+    memset(g_linearEgaBuffer0, 0, renderWidth * renderHeight);
 
-    g_linearEgaBuffer1 = malloc(loresWidth * loresHeight);
-    memset(g_linearEgaBuffer1, 0, loresWidth * loresHeight);
+    g_linearEgaBuffer1 = malloc(renderWidth * renderHeight);
+    memset(g_linearEgaBuffer1, 0, renderWidth * renderHeight);
+
+    for (int page = 0; page < 2; page++)
+    {
+        s_colorPixels[page] = calloc(renderWidth * renderHeight, sizeof(*s_colorPixels[page]));
+        s_colorMask[page] = calloc(renderWidth * renderHeight, sizeof(*s_colorMask[page]));
+    }
+    g_linearColorPixels0 = s_colorPixels[0];
+    g_linearColorMask0 = s_colorMask[0];
 
 #if defined(ENABLE_GRAP_OVERLAY)
     g_linearOverlayBuffer = malloc(hiresWidth * hiresHeight);
@@ -77,6 +93,16 @@ void GRAP_BUF_Cleanup(void)
 
     g_linearEgaBuffer0 = NULL;
     g_linearEgaBuffer1 = NULL;
+
+    for (int page = 0; page < 2; page++)
+    {
+        free(s_colorPixels[page]);
+        free(s_colorMask[page]);
+        s_colorPixels[page] = NULL;
+        s_colorMask[page] = NULL;
+    }
+    g_linearColorPixels0 = NULL;
+    g_linearColorMask0 = NULL;
 
 #if defined(ENABLE_GRAP_OVERLAY)
     free(g_linearOverlayBuffer);
@@ -103,6 +129,28 @@ static inline byte* GetPage(int page)
     return 0;
 }
 
+static inline u32* GetColorPixels(int page)
+{
+    return page == 0 || page == 1 ? s_colorPixels[page] : NULL;
+}
+
+static inline u8* GetColorMask(int page)
+{
+    return page == 0 || page == 1 ? s_colorMask[page] : NULL;
+}
+
+static inline void ClearColorMaskRect(int page, int x, int y, int width, int height)
+{
+    u8* mask = GetColorMask(page);
+    if (mask == NULL)
+        return;
+
+    for (int row = 0; row < height; row++)
+    {
+        memset(&mask[(y + row) * renderWidth + x], 0, width);
+    }
+}
+
 #if defined(ENABLE_GRAP_OVERLAY)
 static inline void GrPutOverlayPixel(int x, int y, int egaColor) { g_linearOverlayBuffer[y * hiresWidth + x] = egaColor; }
 #endif
@@ -110,14 +158,30 @@ static inline void GrPutOverlayPixel(int x, int y, int egaColor) { g_linearOverl
 static inline void GrPutPixel(int page, int x, int y, int egaColor)
 {
     byte* target = GetPage(page);
-    target[y * loresWidth + x] = egaColor;
+    int dstX = x * loresToHiresRatio;
+    int dstY = y * loresToHiresRatio;
+    int offset = dstY * renderWidth + dstX;
+
+    target[offset] = egaColor;
+    target[offset + 1] = egaColor;
+    target[offset + renderWidth] = egaColor;
+    target[offset + renderWidth + 1] = egaColor;
+    ClearColorMaskRect(page, dstX, dstY, loresToHiresRatio, loresToHiresRatio);
 }
 
 static inline void GrPutByte(int page, int x, int y, byte egaByte)
 {
     byte* target = GetPage(page);
-    target[y * loresWidth + x] = egaByte >> 4;
-    target[y * loresWidth + x + 1] = egaByte & 0xf;
+    int dstX = x * loresToHiresRatio;
+    int dstY = y * loresToHiresRatio;
+    byte* row = &target[dstY * renderWidth + dstX];
+    byte leftColor = egaByte >> 4;
+    byte rightColor = egaByte & 0xf;
+
+    row[0] = row[1] = leftColor;
+    row[2] = row[3] = rightColor;
+    memcpy(&row[renderWidth], row, 4);
+    ClearColorMaskRect(page, dstX, dstY, loresToHiresRatio * 2, loresToHiresRatio);
 }
 
 // safe but slow
@@ -159,14 +223,19 @@ static void PrintDebugOverlayChar(int penX, int penY, uint ch)
         {
             byte col = b & mask[x] ? 15 : 1;
 
-            GrPutOverlayPixel(penX * 8 + x, penY * 8 + y, col);
+            int dstX = penX * 16 + x * 2;
+            int dstY = penY * 16 + y * 2;
+            GrPutOverlayPixel(dstX, dstY, col);
+            GrPutOverlayPixel(dstX + 1, dstY, col);
+            GrPutOverlayPixel(dstX, dstY + 1, col);
+            GrPutOverlayPixel(dstX + 1, dstY + 1, col);
         }
     }
 }
 
 static void PrintDebugOverlayString(char* str)
 {
-    if (_debugPenY >= 50)
+    if (_debugPenY >= 25)
         return;
 
     int len = strlen(str);
@@ -174,7 +243,7 @@ static void PrintDebugOverlayString(char* str)
     {
         PrintDebugOverlayChar(_debugPenX, _debugPenY, str[i]);
         _debugPenX++;
-        if (_debugPenX >= 80)
+        if (_debugPenX >= 40)
         {
             _debugPenX = 0;
             _debugPenY++;
@@ -306,29 +375,42 @@ void GRAP_BUF_PrintChar(byte* ptr, int offset, byte fgColor, byte bgColor, int p
 // 0x27
 void GRAP_BUF_ScrollWindow(int left, int top, int right, int bottom, int amount)
 {
+    int x = left * loresToHiresRatio;
+    int width = (right - left + 1) * loresToHiresRatio;
+    int y1 = top * loresToHiresRatio;
+    int y2 = (bottom + 1) * loresToHiresRatio - 1;
+    int dy = abs(amount) * loresToHiresRatio;
+
     if (amount < 0)
     {
-        amount = -amount;
-        for (int y = top; y <= bottom - amount; y++)
+        for (int y = y1; y <= y2 - dy; y++)
         {
-            memcpy(&g_linearEgaBuffer0[y * loresWidth + left], &g_linearEgaBuffer0[(y + amount) * loresWidth + left], right - left + 1);
+            memcpy(&g_linearEgaBuffer0[y * renderWidth + x], &g_linearEgaBuffer0[(y + dy) * renderWidth + x], width);
+            memmove(&s_colorPixels[0][y * renderWidth + x], &s_colorPixels[0][(y + dy) * renderWidth + x], width * sizeof(u32));
+            memmove(&s_colorMask[0][y * renderWidth + x], &s_colorMask[0][(y + dy) * renderWidth + x], width);
         }
 
-        for (int y = bottom - amount + 1; y <= bottom; y++)
+        for (int y = y2 - dy + 1; y <= y2; y++)
         {
-            memset(&g_linearEgaBuffer0[y * loresWidth + left], 0, right - left + 1);
+            memset(&g_linearEgaBuffer0[y * renderWidth + x], 0, width);
+            memset(&s_colorPixels[0][y * renderWidth + x], 0, width * sizeof(u32));
+            memset(&s_colorMask[0][y * renderWidth + x], 0, width);
         }
     }
     else
     {
-        for (int y = bottom; y >= top + amount; y--)
+        for (int y = y2; y >= y1 + dy; y--)
         {
-            memcpy(&g_linearEgaBuffer0[y * loresWidth + left], &g_linearEgaBuffer0[(y - amount) * loresWidth + left], right - left + 1);
+            memcpy(&g_linearEgaBuffer0[y * renderWidth + x], &g_linearEgaBuffer0[(y - dy) * renderWidth + x], width);
+            memmove(&s_colorPixels[0][y * renderWidth + x], &s_colorPixels[0][(y - dy) * renderWidth + x], width * sizeof(u32));
+            memmove(&s_colorMask[0][y * renderWidth + x], &s_colorMask[0][(y - dy) * renderWidth + x], width);
         }
 
-        for (int y = top; y < top + amount; y++)
+        for (int y = y1; y < y1 + dy; y++)
         {
-            memset(&g_linearEgaBuffer0[y * loresWidth + left], 0, right - left + 1);
+            memset(&g_linearEgaBuffer0[y * renderWidth + x], 0, width);
+            memset(&s_colorPixels[0][y * renderWidth + x], 0, width * sizeof(u32));
+            memset(&s_colorMask[0][y * renderWidth + x], 0, width);
         }
     }
 
@@ -344,19 +426,24 @@ void GRAP_BUF_FillWindow(int x1, int y1, int x2, int y2, int xorMode)
         return;
 
     byte* target = GetPage(D_52ba_vdp._52d8_page);
+    x1 *= loresToHiresRatio;
+    y1 *= loresToHiresRatio;
+    x2 = (x2 + 1) * loresToHiresRatio - 1;
+    y2 = (y2 + 1) * loresToHiresRatio - 1;
+    ClearColorMaskRect(D_52ba_vdp._52d8_page, x1, y1, x2 - x1 + 1, y2 - y1 + 1);
 
     for (int y = y1; y <= y2; y++)
     {
         if (!xorMode)
         {
-            memset(&target[y * loresWidth + x1], g_grapPenColor, x2 - x1 + 1);
+            memset(&target[y * renderWidth + x1], g_grapPenColor, x2 - x1 + 1);
         }
         else
         {
             for (int x = x1; x <= x2; x++)
             {
-                target[y * loresWidth + x] ^= g_grapPenColor;
-                target[y * loresWidth + x] &= 0xf;
+                target[y * renderWidth + x] ^= g_grapPenColor;
+                target[y * renderWidth + x] &= 0xf;
             }
         }
     }
@@ -370,6 +457,13 @@ void GRAP_BUF_FillWindow(int x1, int y1, int x2, int y2, int xorMode)
 void GRAP_BUF_LoadTileset(byte* tileset)
 {
     s_tileset = tileset;
+}
+
+void GRAP_BUF_LoadColorTileAtlas(u32* pixels, int columns, int tileCount)
+{
+    s_colorTileAtlas = pixels;
+    s_colorTileColumns = columns;
+    s_colorTileCount = tileCount;
 }
 
 void GRAP_BUF_UnloadTileset(void)
@@ -393,10 +487,43 @@ void GRAP_BUF_UpdateTimeTileset(int mode, byte hour, byte minute)
 
 void GRAP_BUF_PutTile(int tileX, int tileY, int tileIdx, int xOffset, int yOffset)
 {
+    int page = D_52ba_vdp._52d8_page;
+    if (s_colorTileAtlas != NULL && tileIdx >= 0 && tileIdx < s_colorTileCount)
+    {
+        u32* colorPixels = GetColorPixels(page);
+        u8* colorMask = GetColorMask(page);
+        int dstX = tileX * tilePixelSize + xOffset * loresToHiresRatio;
+        int dstY = tileY * tilePixelSize + yOffset * loresToHiresRatio;
+        int srcX = (tileIdx % s_colorTileColumns) * tilePixelSize;
+        int srcY = (tileIdx / s_colorTileColumns) * tilePixelSize;
+        int atlasWidth = s_colorTileColumns * tilePixelSize;
+
+        for (int y = 0; y < tilePixelSize; y++)
+        {
+            int outY = dstY + y;
+            if (outY < 0 || outY >= renderHeight)
+                continue;
+
+            for (int x = 0; x < tilePixelSize; x++)
+            {
+                int outX = dstX + x;
+                if (outX < 0 || outX >= renderWidth)
+                    continue;
+
+                int dst = outY * renderWidth + outX;
+                colorPixels[dst] = s_colorTileAtlas[(srcY + y) * atlasWidth + srcX + x];
+                colorMask[dst] = 1;
+            }
+        }
+
+        s_dirty = true;
+        return;
+    }
+
     byte* tile = &s_tileset[0x80 * tileIdx];
 
-    int width = 16;
-    int height = 16;
+    int width = tileSourcePixelSize;
+    int height = tileSourcePixelSize;
     int dstX = tileX * width + xOffset;
     int dstY = tileY * height + yOffset;
 
@@ -439,9 +566,9 @@ static void PutTileRevealPixel(int tileX, int tileY, int tileIdx, int relX, int 
     int dstX;
     int dstY;
 
-    packed = s_tileset[0x80 * tileIdx + relY * 8 + (relX >> 1)];
-    dstX = tileX * 16 + xOffset + relX;
-    dstY = tileY * 16 + yOffset + relY;
+    packed = s_tileset[0x80 * tileIdx + relY * (tileSourcePixelSize / 2) + (relX >> 1)];
+    dstX = tileX * tileSourcePixelSize + xOffset + relX;
+    dstY = tileY * tileSourcePixelSize + yOffset + relY;
 
     if ((relX & 1) == 0)
     {
@@ -678,11 +805,26 @@ void GRAP_BUF_TransferPage(int srcPage, int dstPage, int x1, int y1, int x2, int
 {
     byte* srcPagePtr = GetPage(srcPage);
     byte* dstPagePtr = GetPage(dstPage);
+    u32* srcColorPixels = GetColorPixels(srcPage);
+    u32* dstColorPixels = GetColorPixels(dstPage);
+    u8* srcColorMask = GetColorMask(srcPage);
+    u8* dstColorMask = GetColorMask(dstPage);
 
     // TODO: check bounds
-    for (int y = 0; y <= y2 - y1; y++)
+    int srcX = x1 * loresToHiresRatio;
+    int srcY = y1 * loresToHiresRatio;
+    int dstScaledX = dstX * loresToHiresRatio;
+    int dstScaledY = dstY * loresToHiresRatio;
+    int width = (x2 - x1 + 1) * loresToHiresRatio;
+    int height = (y2 - y1 + 1) * loresToHiresRatio;
+
+    for (int y = 0; y < height; y++)
     {
-        memcpy(&dstPagePtr[(y + dstY) * loresWidth + dstX], &srcPagePtr[(y + y1) * loresWidth + x1], x2 - x1 + 1);
+        memcpy(&dstPagePtr[(y + dstScaledY) * renderWidth + dstScaledX], &srcPagePtr[(y + srcY) * renderWidth + srcX], width);
+        memcpy(&dstColorPixels[(y + dstScaledY) * renderWidth + dstScaledX],
+               &srcColorPixels[(y + srcY) * renderWidth + srcX], width * sizeof(u32));
+        memcpy(&dstColorMask[(y + dstScaledY) * renderWidth + dstScaledX],
+               &srcColorMask[(y + srcY) * renderWidth + srcX], width);
     }
 
     if (dstPage == 0)
@@ -710,7 +852,24 @@ void GRAP_BUF_TransferPage_Reveal(int srcPage, int dstPage, int x1, int y1, int 
     {
         int nx = nextIdx % w;
         int ny = nextIdx / w;
-        dstPagePtr[(ny + dstY) * loresWidth + nx + dstX] = srcPagePtr[(ny + y1) * loresWidth + nx + x1];
+        int srcX = (nx + x1) * loresToHiresRatio;
+        int srcY = (ny + y1) * loresToHiresRatio;
+        int dstPixelX = (nx + dstX) * loresToHiresRatio;
+        int dstPixelY = (ny + dstY) * loresToHiresRatio;
+        for (int dy = 0; dy < loresToHiresRatio; dy++)
+        {
+            byte* src = &srcPagePtr[(srcY + dy) * renderWidth + srcX];
+            byte* dst = &dstPagePtr[(dstPixelY + dy) * renderWidth + dstPixelX];
+            dst[0] = dst[1] = src[0];
+            dst[2] = dst[3] = src[1];
+
+            u32* srcColor = &s_colorPixels[srcPage][(srcY + dy) * renderWidth + srcX];
+            u32* dstColor = &s_colorPixels[dstPage][(dstPixelY + dy) * renderWidth + dstPixelX];
+            u8* srcMask = &s_colorMask[srcPage][(srcY + dy) * renderWidth + srcX];
+            u8* dstMask = &s_colorMask[dstPage][(dstPixelY + dy) * renderWidth + dstPixelX];
+            memcpy(dstColor, srcColor, loresToHiresRatio * sizeof(*dstColor));
+            memcpy(dstMask, srcMask, loresToHiresRatio);
+        }
 
         if (state.produced % 512 == 511)
         {
