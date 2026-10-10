@@ -107,6 +107,8 @@ Casting a spell you lack the MP or level for no longer uses up the mixture or MP
 Cancelling a spell's target, crosshair, or choosing "Pass" for its direction refunds the mixture and MP.
 Poisoned characters no longer die overnight at an inn; they wake healed but still poisoned.
 Level-ups grant one stat point per level gained, so skipping levels between apparitions no longer loses points.
+Rings of Invisibility and Regeneration can crumble when equipped (1 in 16), a feature the original disabled by a typo.
+Druid, Paladin, Ranger and Tinker characters imported from Ultima IV now regain mana.
 Game speed is corrected for modern computers.
 Bug fixes
 
@@ -199,6 +201,14 @@ Things learned about the original PC-DOS game while working on the source. They 
 
 - **Food is eaten at 06:00, 12:00 and 18:00**, one ration per awake, living party member; sleeping companions don't eat.
 - **With no food, every living member takes 1–8 damage each hour.**
+
+### Hidden and Unfinished Content
+
+- **Five dormant classes.** The class list is `AMBFDTPRS`: alongside Avatar, Mage, Bard and Fighter are Ultima IV's Druid, Tinker, Paladin, Ranger and Shepherd. No Ultima V character uses them; they appear only through the Ultima IV import, which keeps the old class unless the Ultima IV save shows the game was completed. Combat gives them sprites (Paladins and Rangers look like fighters, Druids like mages, Tinkers and Shepherds like bards), but mana was only ever refilled for the Avatar, Mage and Bard, so an imported Druid, Paladin, Ranger or Tinker never regained any. `ENABLE_U4_CLASS_MANA` applies Ultima V's halving of Ultima IV mana: Druid 3/4, Paladin and Ranger 1/2, Tinker 1/4 of INT (see `src/class_mana.h`).
+- **"Ring vanishes!" never happened.** Equipping a Ring of Invisibility or Regeneration was meant to have a 1-in-16 chance of the ring crumbling, but the check compares the number of rings owned with the item IDs (42 and 44). `ENABLE_VANISHING_RINGS` restores it.
+- **The Ring of Protection and Spiked Collar did nothing in DOS.** Their only effect is +2 defense, and armor never applied in combat.
+- **An empty FLAMES module.** The game ships `FLAMES.OVL`, a 32-byte overlay whose only routine does nothing; its name hints at a cut effect or scene.
+- **System keys:** Ctrl+V prints the version ("1.16"), Ctrl+S toggles sound, Ctrl+B toggles keyboard buffering, Ctrl+E quits, and Ctrl+K prints karma.
 
 ### Odds and Ends
 
