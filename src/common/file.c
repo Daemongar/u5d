@@ -64,7 +64,7 @@ void FILE_ResolvePath(const char* path, char* out, int outSize)
     }
 }
 
-static FILE* OpenFile(const char* path, const char* mode)
+static FILE* FILE_OpenExact(const char* path, const char* mode)
 {
     char resolved[512];
     FILE* fp = fopen(path, mode);
@@ -82,12 +82,12 @@ void FILE_ResolvePath(const char* path, char* out, int outSize)
     out[outSize - 1] = '\0';
 }
 
-static FILE* OpenFile(const char* path, const char* mode) { return fopen(path, mode); }
+static FILE* FILE_OpenExact(const char* path, const char* mode) { return fopen(path, mode); }
 #endif
 
 FILE* FILE_Open(const char* path, const char* mode)
 {
-    FILE* fp = OpenFile(path, mode);
+    FILE* fp = FILE_OpenExact(path, mode);
 
 #if !defined(TARGET_DOS16)
     // The GOG release keeps INIT.GAM and its own SAVED.GAM in __support/save,
@@ -97,7 +97,7 @@ FILE* FILE_Open(const char* path, const char* mode)
     {
         char gogPath[512];
         snprintf(gogPath, sizeof(gogPath), "__support" PATH_SEP "save" PATH_SEP "%s", path);
-        fp = OpenFile(gogPath, mode);
+        fp = FILE_OpenExact(gogPath, mode);
     }
 #endif
 
