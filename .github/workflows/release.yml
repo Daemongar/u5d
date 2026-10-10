@@ -70,7 +70,7 @@ jobs:
           Copy-Item (Join-Path $redistDir "vcruntime140.dll") staging\
           Copy-Item (Join-Path $redistDir "vcruntime140_1.dll") staging\
 
-      - name: Install WiX Toolset
+      - name: Install WiX Toolset and build MSI
         shell: pwsh
         run: |
           dotnet tool install --global wix --version 7.0.0
@@ -79,10 +79,8 @@ jobs:
           # >$10k/yr revenue (see https://docs.firegiant.com/wix/osmf/).
           # This flag is the documented non-interactive way to accept it in CI.
           wix eula accept wix7
+          wix extension list -g
 
-      - name: Build MSI
-        shell: pwsh
-        run: |
           wix build installer\u5win.wxs `
             -arch x64 `
             -ext WixToolset.UI.wixext `
