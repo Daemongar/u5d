@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/options.h"
 #include "class_mana.h"
 #include "funcs.h"
 #include "vars.h"
@@ -158,7 +159,7 @@ static int SHOPPES3_0072(int param_1, int param_2, int param_3)
                         CASE_U4_CLASS_MANA((*local_6))
                         case CLASS_BARD:
 #if defined(ENABLE_BARD_MANA_ROUNDUP)
-                            local_6->mag = (local_6->intel + 1) >> 1;
+                            local_6->mag = BARD_MANA(local_6->intel);
 #else
                             local_6->mag = local_6->intel >> 1;
 #endif
@@ -166,9 +167,9 @@ static int SHOPPES3_0072(int param_1, int param_2, int param_3)
                         }
 
 #if defined(ENABLE_NO_INN_POISON_DEATH)
-                        // A poisoned guest wakes healed but still poisoned,
-                        // instead of dying in the night.
-                        if (0)
+                        // With no_inn_poison_death, a poisoned guest wakes
+                        // healed but still poisoned instead of dying.
+                        if (!g_options.noInnPoisonDeath && local_6->status == STATUS_POISONED)
 #else
                         if (local_6->status == STATUS_POISONED)
 #endif
@@ -550,7 +551,7 @@ static int SHOPPES3_04e6(int param_1, int param_2)
                     CASE_U4_CLASS_MANA((*local_26))
                     case CLASS_BARD:
 #if defined(ENABLE_BARD_MANA_ROUNDUP)
-                        local_26->mag = (local_26->intel + 1) >> 1;
+                        local_26->mag = BARD_MANA(local_26->intel);
 #else
                         local_26->mag = local_26->intel >> 1;
 #endif

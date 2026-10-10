@@ -46,20 +46,38 @@ Then build with `make -f Makefile.linux` (or `CONFIG=debug`). The executable is 
 
 ### Settings
 
-The SDL builds read `ultima5.ini` from the game data directory. The window mode is set under `[window]`:
+Choose **Options** on the title menu, or press **F1** during play, to change settings: arrow keys choose and change, Tab switches between the Display, Sound and Gameplay pages, and Esc saves and returns. Display and sound changes apply immediately.
+
+Settings are stored in `ultima5.ini` in the game data directory:
 
 ```ini
 [window]
-mode=windowed   ; fullscreen (default) | bordered | windowed
-width=1280      ; size of the window in windowed mode
+mode=windowed        ; fullscreen (default) | bordered | windowed
+width=1280           ; window size in windowed mode
 height=960
+
+[display]
+keep_aspect=0        ; 1: keep the 4:3 shape with black bars
+color_tiles=1        ; use TILES.BMP when present
+enhanced_palette=1   ; softer 16-color palette
+
+[sound]
+music=1
+music_volume=8       ; 0-10
+sound_effects=1
+sound_volume=8       ; 0-10
+terrain_footsteps=1
+
+[gameplay]
+party_exp=1          ; ... one entry per gameplay change, 1 = on
+bard_mana_roundup=1  ; ini only, not on the Options screen
 ```
 
 - `fullscreen`: borderless, covering the whole screen.
 - `bordered`: a normal window with a title bar, maximized to fill the screen.
 - `windowed`: a resizable window at `width` x `height`, shrunk to fit smaller screens.
 
-Without `mode`, the older `fullscreen=1` / `fullscreen=0` setting selects fullscreen or bordered.
+Without `mode`, the older `fullscreen=1` / `fullscreen=0` setting selects fullscreen or bordered. Each gameplay setting only takes effect if its `ENABLE_*` switch in `src/common/platform.h` is compiled in; the original-behavior DOS build is unaffected.
 
 ### Optional Full-Color Tiles
 
@@ -148,7 +166,7 @@ Choosing "Pass" with a storm spell no longer freezes the game.
 Several out-of-bounds memory reads from the original code are fixed.
 Characters imported from Ultima IV are limited to Ultima V's stat and HP caps, fixing broken shop prices and an 800-HP Avatar.
 A level-up can no longer lower a stat that is already above the cap.
-All gameplay changes and fixes can be switched off in platform.h to get the original behavior. A separate DOS build can still reproduce the original program exactly.
+Gameplay changes can be switched on or off in the Options screen (title menu or F1) or in ultima5.ini; bug fixes can be compiled out in platform.h. A separate DOS build can still reproduce the original program exactly.
 Sound effects are synthesized in software (`src/audio/aud_sdl.c`) from the parameters the original driver already dispatches (`AUDIO_DispatchPulse`/`Noise`/`Tone`/`SweepTone`), rather than played back from sampled `SFX/*.wav` files - no extra assets required. A handful of IDs with no reachable dispatch path (`mirror`, `drip1`, `drip2`) remain silent.
 
 ## Discoveries

@@ -1,6 +1,7 @@
 #include "common/common.h"
 
 #include "graphics/grap_buf.h"
+#include "options_menu.h"
 #include "vars.h"
 #include "macros.h"
 
@@ -99,8 +100,17 @@ static u16 KeyboardEventToUltimaKeycode(SDL_KeyboardEvent ev)
     return key;
 }
 
+// F1 opens the Options screen the next time the game waits for a key.
+static bool s_optionsRequested;
+
 void KEY_SDL_ProcessKeyDown(SDL_KeyboardEvent ev)
 {
+    if (ev.key == SDLK_F1)
+    {
+        s_optionsRequested = true;
+        return;
+    }
+
     s_lastDownKeycode = KeyboardEventToUltimaKeycode(ev);
 }
 
@@ -112,8 +122,7 @@ extern void COMSUBS_AimHover(int tileX, int tileY);
 extern bool COMSUBS_AimClick(int tileX, int tileY);
 extern bool COMSUBS_AimCancel(void);
 
-extern int windowWidth;
-extern int windowHeight;
+extern SDL_FRect g_presentRect;
 
 // The combat map viewport is an 11x11 grid of 32px tiles in the 640x400 render.
 #define COMBAT_MAP_TILE_PX tilePixelSize
@@ -121,11 +130,13 @@ extern int windowHeight;
 
 static bool MousePosToTile(float mx, float my, int* outTileX, int* outTileY)
 {
-    if (windowWidth <= 0 || windowHeight <= 0)
+    if (g_presentRect.w <= 0 || g_presentRect.h <= 0)
         return false;
 
-    int renderX = (int)(mx * renderWidth / (float)windowWidth);
-    int renderY = (int)(my * renderHeight / (float)windowHeight);
+    int renderX = (int)((mx - g_presentRect.x) * renderWidth / g_presentRect.w);
+    int renderY = (int)((my - g_presentRect.y) * renderHeight / g_presentRect.h);
+    if (renderX < 0 || renderY < 0)
+        return false;
 
     int tileX = renderX / COMBAT_MAP_TILE_PX;
     int tileY = renderY / COMBAT_MAP_TILE_PX;
@@ -178,6 +189,13 @@ int KEY_PollKey(void)
 	D_538a = 0;
 
 	EVT_Yield();
+
+    if (s_optionsRequested)
+    {
+        s_optionsRequested = false;
+        OPTIONS_MENU_RunInGame();
+        return 0;
+    }
 
     // special keystroke
     if (s_lastDownKeycode & 0x100)

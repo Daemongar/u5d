@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/options.h"
 #include "graphics/grap.h"
 
 #include "event.h"
@@ -41,11 +42,13 @@ void EVT_PollMessages(void)
 
 #if defined(ENABLE_MOUSE_AIM)
 		case SDL_EVENT_MOUSE_MOTION:
-			KEY_SDL_ProcessMouseMotion(ev.motion);
+			if (g_options.mouseAim)
+				KEY_SDL_ProcessMouseMotion(ev.motion);
 			break;
 
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
-			KEY_SDL_ProcessMouseButtonDown(ev.button);
+			if (g_options.mouseAim)
+				KEY_SDL_ProcessMouseButtonDown(ev.button);
 			break;
 #endif
 		}

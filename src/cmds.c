@@ -277,7 +277,7 @@ int CMDS_0000(int param_1, int param_2, int param_3)
                     CASE_U4_CLASS_MANA(D_55a8_party[local_22])
                     case CLASS_BARD:
 #if defined(ENABLE_BARD_MANA_ROUNDUP)
-                        D_55a8_party[local_22].mag = (D_55a8_party[local_22].intel + 1) >> 1;
+                        D_55a8_party[local_22].mag = BARD_MANA(D_55a8_party[local_22].intel);
 #else
                         D_55a8_party[local_22].mag = D_55a8_party[local_22].intel >> 1;
 #endif

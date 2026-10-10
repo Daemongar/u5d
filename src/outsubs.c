@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/options.h"
 #include "class_mana.h"
 #include "vars.h"
 #include "funcs.h"
@@ -516,7 +517,7 @@ void OUTSUBS_0658(void)
             {
 #if defined(ENABLE_STAT_PER_LEVEL)
                 // One stat point per level gained, not one per apparition visit.
-                int levelsGained = local_e > D_55a8_party[local_8].level ? local_e - D_55a8_party[local_8].level : 1;
+                int levelsGained = g_options.statPerLevel && local_e > D_55a8_party[local_8].level ? local_e - D_55a8_party[local_8].level : 1;
 #endif
                 D_55a8_party[local_8].level = local_e;
                 D_55a8_party[local_8].hp = D_55a8_party[local_8].maxHp = local_e * 0x1e;
@@ -537,7 +538,7 @@ void OUTSUBS_0658(void)
                 }
 #endif
 #if defined(ENABLE_CLASS_STAT_GROWTH)
-                switch (OUTSUBS_ChooseLevelUpStat(D_55a8_party[local_8].cls))
+                switch (g_options.classStatGrowth ? OUTSUBS_ChooseLevelUpStat(D_55a8_party[local_8].cls) : ULTIMA_2092_RandomRange(1, 3))
 #else
                 switch (ULTIMA_2092_RandomRange(1, 3))
 #endif
@@ -574,7 +575,7 @@ void OUTSUBS_0658(void)
         CASE_U4_CLASS_MANA(D_55a8_party[local_8])
         case CLASS_BARD:
 #if defined(ENABLE_BARD_MANA_ROUNDUP)
-            D_55a8_party[local_8].mag = (D_55a8_party[local_8].intel + 1) >> 1;
+            D_55a8_party[local_8].mag = BARD_MANA(D_55a8_party[local_8].intel);
 #else
             D_55a8_party[local_8].mag = D_55a8_party[local_8].intel >> 1;
 #endif

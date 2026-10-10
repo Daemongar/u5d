@@ -1,6 +1,7 @@
 #include "common/common.h"
 #include "common/config.h"
 #include "common/file.h"
+#include "common/options.h"
 
 #include "grap_buf.h"
 #include "grap_ops.h"
@@ -20,23 +21,35 @@ static int s_colorTileCount;
 int windowWidth = 1280;
 int windowHeight = 960;
 
-#if defined(ENABLE_ENHANCED_PALETTE)
-// The same 16 EGA hues/roles (index-for-index), softened: less oversaturated,
-// slightly warmer grays/white, so tile art (authored against these exact
-// slots) reads the same way but without the harsh raw 0x00/0x55/0xaa/0xff
-// stepping of the original EGA DAC.
-static Uint32 s_egaPalette[16] =
-{
-    0xff0a0a0a, 0xff1e3a8a, 0xff15803d, 0xff0e7490, 0xffb91c1c, 0xff86198f, 0xff92400e, 0xffa8a29e,
-    0xff57534e, 0xff3b82f6, 0xff4ade80, 0xff22d3ee, 0xfff87171, 0xffe879f9, 0xfffacc15, 0xfffafaf9,
-};
-#else
-static Uint32 s_egaPalette[16] =
+// Where the 640x400 picture is drawn in the window (for mouse mapping).
+SDL_FRect g_presentRect = {0, 0, 1280, 960};
+
+static Uint32 s_egaPaletteOriginal[16] =
 {
     0xff000000, 0xff0000aa, 0xff00aa00, 0xff00aaaa, 0xffaa0000, 0xffaa00aa, 0xffaa5500, 0xffaaaaaa,
     0xff555555, 0xff5555ff, 0xff55ff55, 0xff55ffff, 0xffff5555, 0xffff55ff, 0xffffff55, 0xffffffff,
 };
+
+#if defined(ENABLE_ENHANCED_PALETTE)
+// The same 16 EGA hues/roles (index-for-index), softened: less oversaturated,
+// slightly warmer grays/white, so tile art (authored against these exact
+// slots) reads the same way but without the harsh raw 0x00/0x55/0xaa/0xff
+// stepping of the original EGA DAC. Used when the enhanced_palette setting is on.
+static Uint32 s_egaPaletteEnhanced[16] =
+{
+    0xff0a0a0a, 0xff1e3a8a, 0xff15803d, 0xff0e7490, 0xffb91c1c, 0xff86198f, 0xff92400e, 0xffa8a29e,
+    0xff57534e, 0xff3b82f6, 0xff4ade80, 0xff22d3ee, 0xfff87171, 0xffe879f9, 0xfffacc15, 0xfffafaf9,
+};
 #endif
+
+static const Uint32* CurrentPalette(void)
+{
+#if defined(ENABLE_ENHANCED_PALETTE)
+    if (g_options.enhancedPalette)
+        return s_egaPaletteEnhanced;
+#endif
+    return s_egaPaletteOriginal;
+}
 
 void GRAP_SDL_FlushFrame(void);
 
@@ -100,32 +113,11 @@ static void LoadColorTileAtlas(void)
     }
 
     SDL_DestroySurface(converted);
-    GRAP_BUF_LoadColorTileAtlas(s_colorTileAtlas, s_colorTileColumns, s_colorTileCount);
+    if (g_options.colorTiles)
+    {
+        GRAP_BUF_LoadColorTileAtlas(s_colorTileAtlas, s_colorTileColumns, s_colorTileCount);
+    }
     fprintf(stderr, "Loaded %d full-color tiles from %s\n", s_colorTileCount, path);
-}
-
-typedef enum WindowMode
-{
-    WINDOW_MODE_FULLSCREEN, // borderless, covering the whole screen
-    WINDOW_MODE_BORDERED,   // normal window with title bar, maximized to fill the screen
-    WINDOW_MODE_WINDOWED,   // normal resizable window at [window] width x height
-} WindowMode;
-
-// [window] mode = fullscreen | bordered | windowed. Without it, the older
-// fullscreen=1/0 setting picks fullscreen or bordered.
-static WindowMode ReadWindowMode(void)
-{
-    char mode[32];
-    CONFIG_GetString("window", "mode", "", mode, sizeof(mode));
-
-    if (SDL_strcasecmp(mode, "fullscreen") == 0)
-        return WINDOW_MODE_FULLSCREEN;
-    if (SDL_strcasecmp(mode, "bordered") == 0)
-        return WINDOW_MODE_BORDERED;
-    if (SDL_strcasecmp(mode, "windowed") == 0)
-        return WINDOW_MODE_WINDOWED;
-
-    return CONFIG_GetInt("window", "fullscreen", 1) != 0 ? WINDOW_MODE_FULLSCREEN : WINDOW_MODE_BORDERED;
 }
 
 // Shrink a windowed size (keeping its shape) so it fits on the primary display.
@@ -151,17 +143,17 @@ void GRAP_SDL_Initialize(void)
     windowHeight = CONFIG_GetInt("window", "height", windowHeight);
 
     SDL_WindowFlags windowFlags = 0;
-    WindowMode windowMode = ReadWindowMode();
+    int windowMode = g_options.windowMode;
 
     switch (windowMode)
     {
-    case WINDOW_MODE_FULLSCREEN:
+    case OPTION_WINDOW_FULLSCREEN:
         windowFlags |= SDL_WINDOW_FULLSCREEN;
         break;
-    case WINDOW_MODE_BORDERED:
+    case OPTION_WINDOW_BORDERED:
         windowFlags |= SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED;
         break;
-    case WINDOW_MODE_WINDOWED:
+    default:
         windowFlags |= SDL_WINDOW_RESIZABLE;
         FitWindowToDisplay(&windowWidth, &windowHeight);
         break;
@@ -169,7 +161,7 @@ void GRAP_SDL_Initialize(void)
 
     SDL_CreateWindowAndRenderer("Ultima V: Warriors of Destiny", windowWidth, windowHeight, windowFlags, &s_sdlWindow, &s_sdlRenderer);
 
-    if (windowMode == WINDOW_MODE_WINDOWED)
+    if (windowMode == OPTION_WINDOW_WINDOWED)
     {
         SDL_SetWindowPosition(s_sdlWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     }
@@ -221,6 +213,7 @@ static void LinearToRGB(void)
 {
     Uint32* pixels = s_sdlSurface->pixels;
     int pitch = s_sdlSurface->pitch / 4;
+    const Uint32* s_egaPalette = CurrentPalette();
 
     for (int y = 0; y < renderHeight; y++)
     {
@@ -266,8 +259,61 @@ void GRAP_SDL_FlushFrame(void)
 
     SDL_FRect srcRect = {0, 0, hiresWidth, hiresHeight};
     SDL_FRect dstRect = {0, 0, windowWidth, windowHeight};
+
+    if (g_options.keepAspect)
+    {
+        // Largest 4:3 area that fits (the original 320x200 was shown on 4:3
+        // monitors), centered with black bars.
+        float w = (float)windowWidth;
+        float h = (float)windowHeight;
+        if (w * 3.0f > h * 4.0f)
+            w = h * 4.0f / 3.0f;
+        else
+            h = w * 3.0f / 4.0f;
+        dstRect = (SDL_FRect){(windowWidth - w) / 2.0f, (windowHeight - h) / 2.0f, w, h};
+    }
+
+    g_presentRect = dstRect;
+
+    SDL_SetRenderDrawColor(s_sdlRenderer, 0, 0, 0, 255);
+    SDL_RenderClear(s_sdlRenderer);
     SDL_RenderTexture(s_sdlRenderer, s_sdlTexture, &srcRect, &dstRect);
     SDL_RenderPresent(s_sdlRenderer);
+}
+
+// Apply display settings changed in the Options screen while the game runs.
+void GRAP_SDL_ApplyDisplayOptions(void)
+{
+    switch (g_options.windowMode)
+    {
+    case OPTION_WINDOW_FULLSCREEN:
+        SDL_SetWindowFullscreen(s_sdlWindow, true);
+        break;
+
+    case OPTION_WINDOW_BORDERED:
+        SDL_SetWindowFullscreen(s_sdlWindow, false);
+        SDL_SetWindowBordered(s_sdlWindow, true);
+        SDL_SetWindowResizable(s_sdlWindow, true);
+        SDL_MaximizeWindow(s_sdlWindow);
+        break;
+
+    default:
+    {
+        int width = CONFIG_GetInt("window", "width", 1280);
+        int height = CONFIG_GetInt("window", "height", 960);
+        FitWindowToDisplay(&width, &height);
+        SDL_SetWindowFullscreen(s_sdlWindow, false);
+        SDL_SetWindowBordered(s_sdlWindow, true);
+        SDL_SetWindowResizable(s_sdlWindow, true);
+        SDL_RestoreWindow(s_sdlWindow);
+        SDL_SetWindowSize(s_sdlWindow, width, height);
+        SDL_SetWindowPosition(s_sdlWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+        break;
+    }
+    }
+    SDL_SyncWindow(s_sdlWindow);
+
+    GRAP_BUF_LoadColorTileAtlas(g_options.colorTiles ? s_colorTileAtlas : NULL, s_colorTileColumns, s_colorTileCount);
 }
 
 static GraphicsDriverOps s_winOps =

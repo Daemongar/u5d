@@ -1,0 +1,57 @@
+#ifndef _COMMON_OPTIONS_H
+#define _COMMON_OPTIONS_H
+
+#include "common.h"
+
+// Player settings, changeable from the title menu's Options screen and stored
+// in ultima5.ini. Each gameplay feature also needs its ENABLE_* switch in
+// platform.h to be compiled in; the setting only chooses whether it is used.
+
+enum
+{
+    OPTION_WINDOW_FULLSCREEN, // borderless, covering the whole screen
+    OPTION_WINDOW_BORDERED,   // normal window with title bar, maximized
+    OPTION_WINDOW_WINDOWED,   // normal resizable window
+};
+
+typedef struct Options
+{
+    // Display
+    int windowMode;
+    bool keepAspect; // 4:3 picture with black bars instead of stretching
+    bool colorTiles; // use TILES.BMP when present
+    bool enhancedPalette;
+
+    // Sound
+    bool music;
+    int musicVolume; // 0-10
+    bool soundEffects;
+    int soundVolume; // 0-10
+    bool terrainFootsteps;
+
+    // Gameplay
+    bool mouseAim;
+    bool dialogImprovements;
+    bool smarterAi;
+    bool partyExp;
+    bool groupExpBonus;
+    bool brighterNight;
+    bool quickExit;
+    bool terrainElevation;
+    bool classStatGrowth;
+    bool bardManaRoundup;
+    bool variedCombat;
+    bool vasManiInCombat;
+    bool noWastedCasts;
+    bool noInnPoisonDeath;
+    bool statPerLevel;
+    bool vanishingRings;
+    bool u4ClassMana;
+} Options;
+
+extern Options g_options;
+
+void OPTIONS_Load(void);
+void OPTIONS_Save(void);
+
+#endif

@@ -60,6 +60,7 @@ OBJS += \
 	src/common/debug.o \
 	src/common/lzw.o \
 	src/common/memory.o \
+	src/common/options.o \
 	src/key/key_dos.o \
 	src/time/time_dos.o \
 	src/time/pctimer.o

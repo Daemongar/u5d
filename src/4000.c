@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/options.h"
 #include "audio/aud_mus.h"
 #include "audio/aud_sfx.h"
 #include "funcs.h"
@@ -1147,7 +1148,7 @@ void ULTIMA_4f7c(int param_1)
 			// ULTIMA_6ff0/ULTIMA_5a28 in 5000.c), so intensity 10 lights
 			// roughly a 3-tile radius outdoors (matches the original
 			// torch-lit value) instead of vanilla night's radius-1 (2).
-			D_58a5 = 10;
+			D_58a5 = g_options.brighterNight ? 10 : 2;
 #else
 			D_58a5 = 2;
 #endif
@@ -1174,7 +1175,7 @@ void ULTIMA_4f7c(int param_1)
 			// night floor of 2, independently of the brighter flat night
 			// value above; without this it dips dark for a while right
 			// before jumping back up to 10 at the 5am/8pm boundary.
-			if ((D_587f == 5 || D_587f == 19) && D_58a5 < 10)
+			if (g_options.brighterNight && (D_587f == 5 || D_587f == 19) && D_58a5 < 10)
 			{
 				D_58a5 = 10;
 			}

@@ -27,6 +27,9 @@ extern u8* g_linearColorMask0;
 typedef void pfGrapFlushFrame(void);
 
 extern void GRAP_BUF_LoadColorTileAtlas(u32* pixels, int columns, int tileCount);
+extern void GRAP_BUF_SaveScreen(void);
+extern void GRAP_BUF_RestoreScreen(void);
+extern void GRAP_BUF_ClearColorLayer(void);
 extern void GRAP_BUF_Initialize(pfGrapFlushFrame* pfFlushFrame);
 extern void GRAP_BUF_Cleanup(void);
 extern void GRAP_BUF_Present(void);

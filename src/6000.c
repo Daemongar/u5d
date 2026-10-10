@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/options.h"
 #include "funcs.h"
 #include "vars.h"
 #include "macros.h"
@@ -30,7 +31,10 @@ static void ULTIMA_60ec_LoadSpecialMap(int param_1)
     }
 
 #if defined(ENABLE_VARIED_COMBAT)
-    COMBAT_GEN_GenerateArena(param_1);
+    if (g_options.variedCombat)
+    {
+        COMBAT_GEN_GenerateArena(param_1);
+    }
 #endif
 }
 

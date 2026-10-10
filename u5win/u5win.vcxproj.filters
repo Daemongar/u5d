@@ -113,6 +113,9 @@
     <ClCompile Include="..\src\npc.c">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\options_menu.c">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\outsubs.c">
       <Filter>src</Filter>
     </ClCompile>
@@ -213,6 +216,9 @@
       <Filter>audio</Filter>
     </ClCompile>
     <ClCompile Include="..\src\common\memory.c">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\common\options.c">
       <Filter>common</Filter>
     </ClCompile>
     <ClCompile Include="..\src\common\config.c">
@@ -324,6 +330,15 @@
     </ClInclude>
     <ClInclude Include="..\src\class_mana.h">
       <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\options_menu.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\common\options.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\graphics\tile_colors.h">
+      <Filter>graphics</Filter>
     </ClInclude>
     <ClInclude Include="..\src\cmds.h">
       <Filter>src</Filter>

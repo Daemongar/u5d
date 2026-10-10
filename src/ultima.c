@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #include "common/common.h"
+#include "common/options.h"
 #include "backend/backend.h"
 #include "vars.h"
 #include "funcs.h"
@@ -39,6 +40,7 @@ int CDECL main(int argc, char** argv/*, char** envp*/)
 #endif
 
 #if !defined(TARGET_DOS16)
+    OPTIONS_Load(); // before the backend creates the window
     BACKEND_Initialize();
     atexit(BACKEND_Cleanup);
 #endif

@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/options.h"
 #include "funcs.h"
 #include "vars.h"
 #include "macros.h"
@@ -22,7 +23,8 @@
 // Maximum characters the player can type in a dialog prompt.
 // Original was 0xf (15); raised to 20 to accommodate longer keywords.
 #if defined(ENABLE_DIALOG_IMPROVEMENTS)
-#define TALK_INPUT_MAX 20
+// The buffer always holds 20; the dialog_improvements setting picks the limit.
+#define TALK_INPUT_MAX (g_options.dialogImprovements ? 20 : 0xf)
 #else
 #define TALK_INPUT_MAX 0xf
 #endif
@@ -488,7 +490,7 @@ static void TALK_04d2_PrintCr(void)
 
 #if defined(ENABLE_DIALOG_IMPROVEMENTS)
     D_talk_line_count++;
-    if (D_talk_line_count >= TALK_LINES_PER_PAGE)
+    if (g_options.dialogImprovements && D_talk_line_count >= TALK_LINES_PER_PAGE)
     {
         D_talk_line_count = 0;
         ULTIMA_266c_GetChar();
@@ -908,7 +910,7 @@ static void TALK_0a2c_GetString(void)
 #if defined(ENABLE_DIALOG_IMPROVEMENTS)
     // Uppercase the buffer so all keyword matching is case-insensitive regardless
     // of whether the caller uses TALK_0000_CompareStringNoCase or ULTIMA_6f1e.
-    for (local_4 = 0; D_bcf8[local_4] != 0; local_4++)
+    for (local_4 = 0; g_options.dialogImprovements && D_bcf8[local_4] != 0; local_4++)
     {
         D_bcf8[local_4] = (char)ULTIMA_2032_ToUpper((byte)D_bcf8[local_4]);
     }
@@ -1047,7 +1049,7 @@ static int TALK_0b04(void)
         {
 #if defined(ENABLE_DIALOG_IMPROVEMENTS)
             // Check for HINT or ? before the NPC-specific keyword scan.
-            if (local_6 == -1 &&
+            if (local_6 == -1 && g_options.dialogImprovements &&
                 (ULTIMA_6f1e((byte*)"HINT", D_bcf8) != -1 ||
                  ULTIMA_6f1e((byte*)"?",    D_bcf8) != -1))
             {
@@ -1065,7 +1067,7 @@ static int TALK_0b04(void)
             else
             {
 #if defined(ENABLE_DIALOG_IMPROVEMENTS)
-                if (D_bcf6 < 32 && (D_talk_asked_mask & ((u32)1 << D_bcf6)) != 0)
+                if (g_options.dialogImprovements && D_bcf6 < 32 && (D_talk_asked_mask & ((u32)1 << D_bcf6)) != 0)
                 {
                     // Already answered this keyword this conversation
                     ULTIMA_1850_PrintString(_TEXT(0x9420, "\"I have already told thee of that."));

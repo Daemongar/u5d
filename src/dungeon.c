@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/options.h"
 #include "funcs.h"
 #include "vars.h"
 #include "macros.h"
@@ -448,6 +449,13 @@ static int DUNGEON_06c4_ProcessCommand(int param_1)
     int local_4;
 
     local_4 = 1;
+#if defined(ENABLE_QUICK_EXIT)
+    // With quick_exit, Esc also asks "Exit to DOS?" (the original only took Ctrl+E).
+    if (param_1 == U5_KEY_ESC && g_options.quickExit)
+    {
+        param_1 = U5_KEY_CTRL_E;
+    }
+#endif
     switch (param_1)
     {
     case U5_KEY_CTRL_K:
@@ -457,9 +465,6 @@ static int DUNGEON_06c4_ProcessCommand(int param_1)
         break;
 
     case U5_KEY_CTRL_E:
-#if defined(ENABLE_QUICK_EXIT)
-    case U5_KEY_ESC:
-#endif
         // 0710
         ULTIMA_1850_PrintString(_TEXT(0x2d2d, "Exit to DOS? "));
         param_1 = ULTIMA_266c_GetChar();

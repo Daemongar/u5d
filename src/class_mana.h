@@ -2,7 +2,14 @@
 #define _CLASS_MANA_H
 
 #include "common/common.h"
+#include "common/options.h"
 #include "macros.h"
+
+#if defined(ENABLE_BARD_MANA_ROUNDUP)
+// Bard mana from INTEL: rounded up with the bard_mana_roundup setting, down
+// (as in the original) otherwise.
+#define BARD_MANA(intel) ((u8)(g_options.bardManaRoundup ? ((intel) + 1) >> 1 : (intel) >> 1))
+#endif
 
 #if defined(ENABLE_U4_CLASS_MANA)
 // Maximum mana for the Ultima IV classes (Druid, Paladin, Ranger, Tinker) that
@@ -20,7 +27,7 @@ static inline u8 CLASS_U4MaxMana(u8 cls, u8 intel)
     case CLASS_PALADIN:
     case CLASS_RANGER:
 #if defined(ENABLE_BARD_MANA_ROUNDUP)
-        return (u8)((intel + 1) >> 1);
+        return BARD_MANA(intel);
 #else
         return (u8)(intel >> 1);
 #endif
@@ -36,7 +43,8 @@ static inline u8 CLASS_U4MaxMana(u8 cls, u8 intel)
     case CLASS_PALADIN:                                                                                                \
     case CLASS_RANGER:                                                                                                 \
     case CLASS_TINKER:                                                                                                 \
-        (character).mag = CLASS_U4MaxMana((character).cls, (character).intel);                                         \
+        if (g_options.u4ClassMana)                                                                                     \
+            (character).mag = CLASS_U4MaxMana((character).cls, (character).intel);                                     \
         break;
 #else
 #define CASE_U4_CLASS_MANA(character)

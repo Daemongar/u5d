@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/options.h"
 #include "vars.h"
 #include "funcs.h"
 #include "macros.h"
@@ -1350,6 +1351,13 @@ void TOWN_141e_MainLoop(void)
                 if (local_8 < 0x20)
                 {
                     // 14a5
+#if defined(ENABLE_QUICK_EXIT)
+                    // With quick_exit, Esc also asks "Exit to DOS?" (the original only took Ctrl+E).
+                    if (local_8 == U5_KEY_ESC && g_options.quickExit)
+                    {
+                        local_8 = U5_KEY_CTRL_E;
+                    }
+#endif
                     switch (local_8)
                     {
                     case U5_KEY_CTRL_K: // 14b8 (9688)
@@ -1361,9 +1369,6 @@ void TOWN_141e_MainLoop(void)
                         break;
 
                     case U5_KEY_CTRL_E: // 14cc (969c)
-#if defined(ENABLE_QUICK_EXIT)
-                    case U5_KEY_ESC:
-#endif
                         ULTIMA_1850_PrintString(_TEXT(0x2898, "Exit to DOS? "));
                         local_8 = ULTIMA_266c_GetChar();
                         if (local_8 == 0x59)

@@ -1,5 +1,6 @@
 #include "common/common.h"
 #include "common/file.h"
+#include "common/options.h"
 
 #include "audio.h"
 #include "aud_ops.h"
@@ -84,6 +85,16 @@ void AUDIO_SDL_LoadSfxTable(void);
 void AUDIO_SDL_PlayBgmSub(int id);
 void SDLCALL AUDIO_SDL_OnBgmStopped(void* userdata, MIX_Track* track);
 
+// Volume from the Options screen: 0-10, where the default of 8 gives the
+// original levels; switching a category off silences its track.
+void AUDIO_SDL_ApplySoundOptions(void)
+{
+    if (s_bgmTrack != NULL)
+        MIX_SetTrackGain(s_bgmTrack, g_options.music ? 0.3f * g_options.musicVolume / 8.0f : 0.0f);
+    if (s_sfxTrack != NULL)
+        MIX_SetTrackGain(s_sfxTrack, g_options.soundEffects ? 0.2f * g_options.soundVolume / 8.0f : 0.0f);
+}
+
 void AUDIO_SDL_Init(void)
 {
     MIX_Init();
@@ -93,8 +104,7 @@ void AUDIO_SDL_Init(void)
     s_bgmTrack = MIX_CreateTrack(s_mixer);
     s_sfxTrack = MIX_CreateTrack(s_mixer);
 
-    MIX_SetTrackGain(s_bgmTrack, 0.3f);
-    MIX_SetTrackGain(s_sfxTrack, 0.2f);
+    AUDIO_SDL_ApplySoundOptions();
 
     s_bgmTrackProp = SDL_CreateProperties();
     SDL_SetNumberProperty(s_bgmTrackProp, MIX_PROP_PLAY_LOOPS_NUMBER, -1);

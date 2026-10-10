@@ -614,6 +614,84 @@ void GRAP_BUF_LoadTileset(byte* tileset)
 #endif
 }
 
+// Snapshot of everything drawn, so an overlay screen (the in-game Options
+// screen) can be shown and the game screen put back exactly afterwards.
+typedef struct ScreenSnapshot
+{
+    u8* ega[2];
+    u32* colorPixels[2];
+    u8* colorMask[2];
+    u8* overlay;
+    byte penColor;
+} ScreenSnapshot;
+
+static ScreenSnapshot s_snapshot;
+
+static void* SnapshotCopy(void** dst, const void* src, size_t size)
+{
+    if (src == NULL)
+        return NULL;
+    if (*dst == NULL)
+        *dst = malloc(size);
+    if (*dst != NULL)
+        memcpy(*dst, src, size);
+    return *dst;
+}
+
+void GRAP_BUF_SaveScreen(void)
+{
+    size_t pixels = (size_t)renderWidth * renderHeight;
+
+    SnapshotCopy((void**)&s_snapshot.ega[0], g_linearEgaBuffer0, pixels);
+    SnapshotCopy((void**)&s_snapshot.ega[1], g_linearEgaBuffer1, pixels);
+    for (int page = 0; page < 2; page++)
+    {
+        SnapshotCopy((void**)&s_snapshot.colorPixels[page], s_colorPixels[page], pixels * sizeof(u32));
+        SnapshotCopy((void**)&s_snapshot.colorMask[page], s_colorMask[page], pixels);
+    }
+    SnapshotCopy((void**)&s_snapshot.overlay, g_linearOverlayBuffer, (size_t)hiresWidth * hiresHeight);
+    s_snapshot.penColor = g_grapPenColor;
+}
+
+// Hide the full-color tile layer (and the debug overlay), which otherwise sit
+// on top of anything drawn in 16 colors. Put back by GRAP_BUF_RestoreScreen.
+void GRAP_BUF_ClearColorLayer(void)
+{
+    size_t pixels = (size_t)renderWidth * renderHeight;
+
+    for (int page = 0; page < 2; page++)
+    {
+        if (s_colorMask[page] != NULL)
+            memset(s_colorMask[page], 0, pixels);
+    }
+    if (g_linearOverlayBuffer != NULL)
+        memset(g_linearOverlayBuffer, 0, (size_t)hiresWidth * hiresHeight);
+
+    s_dirty = true;
+}
+
+void GRAP_BUF_RestoreScreen(void)
+{
+    size_t pixels = (size_t)renderWidth * renderHeight;
+
+    if (s_snapshot.ega[0] != NULL && g_linearEgaBuffer0 != NULL)
+        memcpy(g_linearEgaBuffer0, s_snapshot.ega[0], pixels);
+    if (s_snapshot.ega[1] != NULL && g_linearEgaBuffer1 != NULL)
+        memcpy(g_linearEgaBuffer1, s_snapshot.ega[1], pixels);
+    for (int page = 0; page < 2; page++)
+    {
+        if (s_snapshot.colorPixels[page] != NULL && s_colorPixels[page] != NULL)
+            memcpy(s_colorPixels[page], s_snapshot.colorPixels[page], pixels * sizeof(u32));
+        if (s_snapshot.colorMask[page] != NULL && s_colorMask[page] != NULL)
+            memcpy(s_colorMask[page], s_snapshot.colorMask[page], pixels);
+    }
+    if (s_snapshot.overlay != NULL && g_linearOverlayBuffer != NULL)
+        memcpy(g_linearOverlayBuffer, s_snapshot.overlay, (size_t)hiresWidth * hiresHeight);
+    g_grapPenColor = s_snapshot.penColor;
+
+    s_dirty = true;
+}
+
 void GRAP_BUF_LoadColorTileAtlas(u32* pixels, int columns, int tileCount)
 {
     s_colorTileAtlas = pixels;

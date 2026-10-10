@@ -1,5 +1,6 @@
 #include "audio/audio.h"
 #include "common/common.h"
+#include "options_menu.h"
 #include "funcs.h"
 #include "grap_drv.h"
 #include "savegame.h"
@@ -371,6 +372,13 @@ static void INTRO_05b0_DisplayTitle(int param_1) // (0 for fast display)
     INTRO_04e0_DrawMenuBorders();
 }
 
+// Index of the last title menu item (the SDL builds add "Options").
+#if defined(TARGET_SDL)
+#define INTRO_MENU_LAST 6
+#else
+#define INTRO_MENU_LAST 5
+#endif
+
 // OK P1
 static void INTRO_0676_WriteMenuOption(int param_4, int param_3, int param_2, char* param_1)
 {
@@ -399,6 +407,9 @@ static void INTRO_06bc_BuildMainMenu(int param_1)
     INTRO_0676_WriteMenuOption(param_1, 3, 9, _TEXT(0x3148, "Ultima V Introduction"));
     INTRO_0676_WriteMenuOption(param_1, 4, 0xb, _TEXT(0x315e, "Acknowledgements"));
     INTRO_0676_WriteMenuOption(param_1, 5, 10, _TEXT(0x316f, "Return to the View"));
+#if defined(TARGET_SDL)
+    INTRO_0676_WriteMenuOption(param_1, 6, 0xf, "Options");
+#endif
 }
 
 // OK P1
@@ -773,14 +784,14 @@ void INTRO_0986_Main(void) // intro_main (initialize video) (8b46)
                     local_c--;
                     if (local_c < 0)
                     {
-                        local_c = 5;
+                        local_c = INTRO_MENU_LAST;
                     }
                     INTRO_06bc_BuildMainMenu(local_c);
                     break;
                 case U5_KEY_RIGHT:
                 case U5_KEY_DOWN:
                     local_c++;
-                    if (5 < local_c)
+                    if (INTRO_MENU_LAST < local_c)
                     {
                         local_c = 0;
                     }
@@ -789,7 +800,11 @@ void INTRO_0986_Main(void) // intro_main (initialize video) (8b46)
                 case U5_KEY_ENTER:  // CR
                 case U5_KEY_SPACE: // ' '
                     // 0de2
+#if defined(TARGET_SDL)
+                    local_10 = "JCTUARO"[local_c];
+#else
                     local_10 = _TEXT(0x3270, "JCTUAR")[local_c];
+#endif
                     break;
                 case 0:
                     local_10 = 0x52;
@@ -812,6 +827,11 @@ void INTRO_0986_Main(void) // intro_main (initialize video) (8b46)
                 case 0x52: // 'R'
                     INTRO_06bc_BuildMainMenu(5);
                     break;
+#if defined(TARGET_SDL)
+                case 'O':
+                    INTRO_06bc_BuildMainMenu(6);
+                    break;
+#endif
                 default:
                     local_10 = 0;
                     break;
@@ -933,6 +953,13 @@ void INTRO_0986_Main(void) // intro_main (initialize video) (8b46)
         case 0x52:       // 'R'
             FONT_04a4(); // thunk
             break;
+
+#if defined(TARGET_SDL)
+        case 'O':
+            OPTIONS_MENU_Run();
+            INTRO_05b0_DisplayTitle(0);
+            break;
+#endif
         }
     } while (1);
 }

@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/options.h"
 
 #include "funcs.h"
 #include "vars.h"
@@ -364,7 +365,7 @@ static void MAINOUT_03e0(int param_1_prevElevation)
     // elevation band gained over the tile you just left burns additional
     // time, so cutting straight up a mountain from open ground is slower
     // than approaching gradually through foothills. Descending is free.
-    if (local_6 > param_1_prevElevation)
+    if (g_options.terrainElevation && local_6 > param_1_prevElevation)
     {
         ULTIMA_4f7c((local_6 - param_1_prevElevation) * 2);
     }
@@ -389,13 +390,14 @@ static int MAINOUT_0490(int param_1, int param_2)
     }
 
     // 04b8
-#if !defined(ENABLE_TERRAIN_FOOTSTEPS)
+#if defined(ENABLE_TERRAIN_FOOTSTEPS)
     // (With terrain footsteps the step plays once the move resolves, below.)
+    if (!g_options.terrainFootsteps)
+#endif
     if (D_587c_partyTile == TILE_ACTOR_AVATAR || (D_587c_partyTile & 0xfe) == TILE_ACTOR_RIDING_HORSE)
     {
         ULTIMA_433e_AudioFootstep();
     }
-#endif
 
     // 04cb
     local_6 = local_8 = 0;
@@ -492,7 +494,8 @@ static int MAINOUT_0490(int param_1, int param_2)
     // 050e
     local_4 = MAINOUT_01fe(local_6, local_8);
 #if defined(ENABLE_TERRAIN_FOOTSTEPS)
-    if (D_587c_partyTile == TILE_ACTOR_AVATAR || (D_587c_partyTile & 0xfe) == TILE_ACTOR_RIDING_HORSE)
+    if (g_options.terrainFootsteps &&
+        (D_587c_partyTile == TILE_ACTOR_AVATAR || (D_587c_partyTile & 0xfe) == TILE_ACTOR_RIDING_HORSE))
     {
         if (param_2 == 0 && local_4 != 0)
         {
@@ -512,12 +515,13 @@ static int MAINOUT_0490(int param_1, int param_2)
 #endif
     if (param_2 == 0 && local_4 != 0)
     {
-#if !defined(ENABLE_TERRAIN_FOOTSTEPS)
+#if defined(ENABLE_TERRAIN_FOOTSTEPS)
+        if (!g_options.terrainFootsteps)
+#endif
         if ((D_587c_partyTile & 0xfe) == TILE_ACTOR_RIDING_HORSE)
         {
             ULTIMA_433e_AudioFootstep();
         }
-#endif
         // 0530
 #if defined(ENABLE_TERRAIN_ELEVATION)
         {
@@ -939,6 +943,13 @@ static void MAINOUT_0a84_MainLoop(void)
             local_6 = MAINOUT_0598();
             if (local_6 < 0x20)
             {
+#if defined(ENABLE_QUICK_EXIT)
+                // With quick_exit, Esc also asks "Exit to DOS?" (the original only took Ctrl+E).
+                if (local_6 == U5_KEY_ESC && g_options.quickExit)
+                {
+                    local_6 = U5_KEY_CTRL_E;
+                }
+#endif
                 switch (local_6 & 0xff)
                 {
                 case U5_KEY_CTRL_K: // 0b34
@@ -950,9 +961,6 @@ static void MAINOUT_0a84_MainLoop(void)
                     break; // -> 0c12
 
                 case U5_KEY_CTRL_E: // 0b48
-#if defined(ENABLE_QUICK_EXIT)
-                case U5_KEY_ESC:
-#endif
                     ULTIMA_1850_PrintString(_TEXT(0x2b3e, "Exit to DOS? "));
                     local_6 = ULTIMA_266c_GetChar();
                     if (local_6 == 'Y')

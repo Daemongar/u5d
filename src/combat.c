@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/options.h"
 #include "vars.h"
 #include "funcs.h"
 #include "macros.h"
@@ -994,6 +995,7 @@ static int COMBAT_0d30(int param_1)
                     // so a nearby finishing blow is preferred over a slightly
                     // nearer full-health target, without ever overriding a
                     // real difference in distance.
+                    if (g_options.smarterAi)
                     {
                         int hpPct = COMBAT_HpPercent(local_c);
                         if (hpPct <= 25)
@@ -1569,6 +1571,7 @@ void COMBAT_AwardExp(S_55a8* killer, int amount)
     }
 
 #if defined(ENABLE_GROUP_EXP_BONUS)
+    if (g_options.groupExpBonus)
     {
         // The monster that was just killed already lost its MONSTER flag
         // (see COMBAT_1574), so it isn't counted here; +1 accounts for it.
@@ -1583,6 +1586,7 @@ void COMBAT_AwardExp(S_55a8* killer, int amount)
 #endif
 
 #if defined(ENABLE_PARTY_EXP)
+    if (g_options.partyExp)
     {
         int i;
         for (i = 0; i < D_585b; i++)
@@ -1593,12 +1597,12 @@ void COMBAT_AwardExp(S_55a8* killer, int amount)
             }
         }
     }
-#else
+    else
+#endif
     if (killer != NULL)
     {
         ULTIMA_3f14_IncreaseInt(&killer->exp, amount, 9999);
     }
-#endif
 }
 
 // OK P1

@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/options.h"
 #include "funcs.h"
 #include "vars.h"
 #include "macros.h"
@@ -629,7 +630,8 @@ static int CAST_08ac(void)
         local_4 = -1;
     }
 #if defined(ENABLE_VAS_MANI_IN_COMBAT)
-    else if (D_55a8_party[local_6].status == STATUS_DEAD)
+    else if (D_55a8_party[local_6].status == STATUS_DEAD ||
+             (!g_options.vasManiInCombat && D_5893_map_id > 0x7f && D_58a3 == 0))
     {
         local_4 = 0;
     }
@@ -1057,13 +1059,13 @@ int CAST_0dba_CastSpellCmd(void)
 #if defined(ENABLE_NO_WASTED_CASTS)
     // The original used up the mixture before checking MP, and the MP before
     // checking level. Check both first so a cast that can't happen costs nothing.
-    if (D_55a8_party[local_6].mag < local_a)
+    if (g_options.noWastedCasts && D_55a8_party[local_6].mag < local_a)
     {
         ULTIMA_1850_PrintString(_TEXT(0x4647, "M.P. too low!\n"));
         return local_8;
     }
 
-    if (D_55a8_party[local_6].level < local_a)
+    if (g_options.noWastedCasts && D_55a8_party[local_6].level < local_a)
     {
         ULTIMA_1850_PrintString("Level too low!\n");
         return local_8;
@@ -1280,7 +1282,7 @@ int CAST_0dba_CastSpellCmd(void)
 
 #if defined(ENABLE_NO_WASTED_CASTS)
     // Backing out of the target or direction prompt refunds the cast.
-    if (g_castPromptCancelled)
+    if (g_castPromptCancelled && g_options.noWastedCasts)
     {
         g_castPromptCancelled = 0;
         D_57f0[local_4]++;

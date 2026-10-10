@@ -243,6 +243,7 @@
     <ClCompile Include="..\src\common\file.c" />
     <ClCompile Include="..\src\common\lzw.c" />
     <ClCompile Include="..\src\common\memory.c" />
+    <ClCompile Include="..\src\common\options.c" />
     <ClCompile Include="..\src\comsubs.c" />
     <ClCompile Include="..\src\dnglook.c" />
     <ClCompile Include="..\src\dungeon.c" />
@@ -288,6 +289,7 @@
     <ClCompile Include="..\src\lookobj.c" />
     <ClCompile Include="..\src\mainout.c" />
     <ClCompile Include="..\src\npc.c" />
+    <ClCompile Include="..\src\options_menu.c" />
     <ClCompile Include="..\src\outsubs.c" />
     <ClCompile Include="..\src\savegame.c" />
     <ClCompile Include="..\src\shoppes.c" />
@@ -338,6 +340,9 @@
     <ClInclude Include="..\src\cast.h" />
     <ClInclude Include="..\src\cast2.h" />
     <ClInclude Include="..\src\class_mana.h" />
+    <ClInclude Include="..\src\options_menu.h" />
+    <ClInclude Include="..\src\common\options.h" />
+    <ClInclude Include="..\src\graphics\tile_colors.h" />
     <ClInclude Include="..\src\cmds.h" />
     <ClInclude Include="..\src\combat.h" />
     <ClInclude Include="..\src\combat_gen.h" />
