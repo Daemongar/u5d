@@ -130,6 +130,15 @@
 // (e.g. 2 -> 4) lost the points for the skipped levels.
 //#define ENABLE_STAT_PER_LEVEL 1
 
+// Restore the 1-in-16 chance that a Ring of Invisibility or Regeneration
+// crumbles when equipped ("Ring vanishes!"). A typo in the original compared
+// the quantity owned with the ring's item ID, so it never happened.
+//#define ENABLE_VANISHING_RINGS 1
+
+// Give the Ultima IV classes (Druid, Paladin, Ranger, Tinker) a mana rule; see
+// class_mana.h. An imported character of these classes never regained mana.
+//#define ENABLE_U4_CLASS_MANA 1
+
 #if defined(TARGET_DOS16)
 #define MATCHING_BUILD 1
 #else
@@ -156,6 +165,8 @@
 #define ENABLE_NO_WASTED_CASTS 1
 #define ENABLE_NO_INN_POISON_DEATH 1
 #define ENABLE_STAT_PER_LEVEL 1
+#define ENABLE_VANISHING_RINGS 1
+#define ENABLE_U4_CLASS_MANA 1
 //#define ENABLE_TRANSLATION 1
 #endif
 

@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "class_mana.h"
 #include "vars.h"
 #include "funcs.h"
 #include "macros.h"
@@ -570,6 +571,7 @@ void OUTSUBS_0658(void)
         case CLASS_MAGE:
             D_55a8_party[local_8].mag = D_55a8_party[local_8].intel;
             break;
+        CASE_U4_CLASS_MANA(D_55a8_party[local_8])
         case CLASS_BARD:
 #if defined(ENABLE_BARD_MANA_ROUNDUP)
             D_55a8_party[local_8].mag = (D_55a8_party[local_8].intel + 1) >> 1;

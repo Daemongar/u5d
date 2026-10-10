@@ -892,7 +892,13 @@ static int ZSTATS_0c5c_EquipItem(int param_1, int param_2)
         // efd2
         *local_10 = param_2;
         --D_57c0[param_2];
+#if defined(ENABLE_VANISHING_RINGS)
+        // The original compared the number of rings owned with the item IDs
+        // (42/44) instead of the ring itself, so this 1-in-16 chance never fired.
+        if ((param_2 == 0x2a || param_2 == 0x2c) && (ULTIMA_2092_RandomRange(0, 0xf) == 0))
+#else
         if ((D_57c0[param_2] == 0x2a || D_57c0[param_2] == 0x2c) && (ULTIMA_2092_RandomRange(0, 0xf) == 0))
+#endif
         {
             // efff
             ULTIMA_1850_PrintString(_TEXT(0x995e, "\n\nRing vanishes!\n"));

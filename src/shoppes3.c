@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "class_mana.h"
 #include "funcs.h"
 #include "vars.h"
 #include "macros.h"
@@ -154,6 +155,7 @@ static int SHOPPES3_0072(int param_1, int param_2, int param_3)
                             local_6->mag = local_6->intel;
                             break;
 
+                        CASE_U4_CLASS_MANA((*local_6))
                         case CLASS_BARD:
 #if defined(ENABLE_BARD_MANA_ROUNDUP)
                             local_6->mag = (local_6->intel + 1) >> 1;
@@ -545,6 +547,7 @@ static int SHOPPES3_04e6(int param_1, int param_2)
                     case CLASS_MAGE:
                         local_26->mag = local_26->intel;
                         break;
+                    CASE_U4_CLASS_MANA((*local_26))
                     case CLASS_BARD:
 #if defined(ENABLE_BARD_MANA_ROUNDUP)
                         local_26->mag = (local_26->intel + 1) >> 1;

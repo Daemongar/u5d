@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "class_mana.h"
 #include "funcs.h"
 #include "vars.h"
 #include "macros.h"
@@ -273,6 +274,7 @@ int CMDS_0000(int param_1, int param_2, int param_3)
                     case CLASS_MAGE:
                         D_55a8_party[local_22].mag = D_55a8_party[local_22].intel;
                         break;
+                    CASE_U4_CLASS_MANA(D_55a8_party[local_22])
                     case CLASS_BARD:
 #if defined(ENABLE_BARD_MANA_ROUNDUP)
                         D_55a8_party[local_22].mag = (D_55a8_party[local_22].intel + 1) >> 1;

@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "class_mana.h"
 
 #include "savegame.h"
 #include "funcs.h"
@@ -468,6 +469,7 @@ int CAST2_05e0_Resurrect(int param_1, int param_2)
             local_4->mag = local_4->intel;
             break;
 
+        CASE_U4_CLASS_MANA((*local_4))
         case CLASS_BARD:
 #if defined(ENABLE_BARD_MANA_ROUNDUP)
             local_4->mag = (local_4->intel + 1) >> 1;

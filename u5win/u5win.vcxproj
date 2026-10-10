@@ -337,6 +337,7 @@
     <ClInclude Include="..\src\blckthrn.h" />
     <ClInclude Include="..\src\cast.h" />
     <ClInclude Include="..\src\cast2.h" />
+    <ClInclude Include="..\src\class_mana.h" />
     <ClInclude Include="..\src\cmds.h" />
     <ClInclude Include="..\src\combat.h" />
     <ClInclude Include="..\src\combat_gen.h" />
