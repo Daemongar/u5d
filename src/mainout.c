@@ -389,10 +389,13 @@ static int MAINOUT_0490(int param_1, int param_2)
     }
 
     // 04b8
+#if !defined(ENABLE_TERRAIN_FOOTSTEPS)
+    // (With terrain footsteps the step plays once the move resolves, below.)
     if (D_587c_partyTile == TILE_ACTOR_AVATAR || (D_587c_partyTile & 0xfe) == TILE_ACTOR_RIDING_HORSE)
     {
         ULTIMA_433e_AudioFootstep();
     }
+#endif
 
     // 04cb
     local_6 = local_8 = 0;
@@ -488,12 +491,33 @@ static int MAINOUT_0490(int param_1, int param_2)
 
     // 050e
     local_4 = MAINOUT_01fe(local_6, local_8);
+#if defined(ENABLE_TERRAIN_FOOTSTEPS)
+    if (D_587c_partyTile == TILE_ACTOR_AVATAR || (D_587c_partyTile & 0xfe) == TILE_ACTOR_RIDING_HORSE)
+    {
+        if (param_2 == 0 && local_4 != 0)
+        {
+            // Step onto the destination tile; a horse steps twice (gallop).
+            byte destTile = *ULTIMA_4402_GetTileAddr(D_5896_map_x + local_6, D_5897_map_y + local_8);
+            ULTIMA_TerrainFootstep(destTile);
+            if ((D_587c_partyTile & 0xfe) == TILE_ACTOR_RIDING_HORSE)
+            {
+                ULTIMA_TerrainFootstep(destTile);
+            }
+        }
+        else
+        {
+            ULTIMA_433e_AudioFootstep(); // blocked: the original bump
+        }
+    }
+#endif
     if (param_2 == 0 && local_4 != 0)
     {
+#if !defined(ENABLE_TERRAIN_FOOTSTEPS)
         if ((D_587c_partyTile & 0xfe) == TILE_ACTOR_RIDING_HORSE)
         {
             ULTIMA_433e_AudioFootstep();
         }
+#endif
         // 0530
 #if defined(ENABLE_TERRAIN_ELEVATION)
         {

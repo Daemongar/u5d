@@ -139,6 +139,10 @@
 // class_mana.h. An imported character of these classes never regained mana.
 //#define ENABLE_U4_CLASS_MANA 1
 
+// Vary the overworld footstep by terrain (grass, brush, forest, swamp, desert,
+// hills, mountains, roads). The original played the same click everywhere.
+//#define ENABLE_TERRAIN_FOOTSTEPS 1
+
 #if defined(TARGET_DOS16)
 #define MATCHING_BUILD 1
 #else
@@ -167,6 +171,7 @@
 #define ENABLE_STAT_PER_LEVEL 1
 #define ENABLE_VANISHING_RINGS 1
 #define ENABLE_U4_CLASS_MANA 1
+#define ENABLE_TERRAIN_FOOTSTEPS 1
 //#define ENABLE_TRANSLATION 1
 #endif
 

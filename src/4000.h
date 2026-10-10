@@ -8,6 +8,9 @@ int ULTIMA_4080(int a);
 
 void ULTIMA_4102_AudioPlayAmbientSfx(void);
 void ULTIMA_433e_AudioFootstep(void);
+#if defined(ENABLE_TERRAIN_FOOTSTEPS)
+void ULTIMA_TerrainFootstep(byte tile);
+#endif
 void ULTIMA_4368_AudioVictoryTune(void);
 void ULTIMA_43ae_AudioSweepTone(int a, int b, int c, int d);
 

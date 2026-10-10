@@ -5,6 +5,7 @@
 #include "macros.h"
 #include "vars.h"
 #include "tiles.h"
+#include "time/time.h"
 
 #include "outsubs.h"
 #include "town.h"
@@ -193,6 +194,83 @@ void ULTIMA_433e_AudioFootstep(void)
 	ULTIMA_20c8_SomeDelay(1, 0x14);
 	ULTIMA_223c_AudioWhiteNoise(1, 0x19, 1500);
 }
+
+#if defined(ENABLE_TERRAIN_FOOTSTEPS)
+// One step of a terrain-specific footstep, built from the same white-noise
+// generator as the original click. holdSamples sets the grain (1 is a bright
+// hiss, larger values are duller and lower); durMs sets the length. A new
+// sound replaces the one playing, so bursts are spaced with real sleeps.
+static void TerrainStep(int holdSamples, int durMs, int bursts)
+{
+    for (int i = 0; i < bursts; i++)
+    {
+        if (i > 0)
+        {
+            TIME_SleepMs(durMs + 6);
+        }
+        ULTIMA_223c_AudioWhiteNoise(holdSamples, durMs, 1000);
+    }
+}
+
+// Footstep for walking onto an overworld tile. The original played the same
+// two clicks everywhere (ULTIMA_433e_AudioFootstep); this varies them by the
+// terrain described in LOOK2.DAT. Unlisted tiles keep the original click.
+void ULTIMA_TerrainFootstep(byte tile)
+{
+    int hold, dur, bursts;
+
+    switch (tile)
+    {
+    case TILE_MAP_POISON: // swamp: low, wet squelch
+        hold = 24; dur = 40; bursts = 1;
+        break;
+    case TILE_MAP_GRASS: // soft swish
+        hold = 2; dur = 28; bursts = 1;
+        break;
+    case 0x06: // brush: crisp double rustle
+    case 0x08:
+        hold = 1; dur = 9; bursts = 2;
+        break;
+    case 0x07: // parched desert: longer, soft sand hiss
+    case 0x1c:
+    case 0x1e:
+    case 0x1f:
+        hold = 1; dur = 45; bursts = 1;
+        break;
+    case 0x09: // trees and tropical forest: leafy rustle
+    case 0x0a:
+        hold = 3; dur = 14; bursts = 2;
+        break;
+    case 0x0b: // foothills: gravel crunch
+    case 0x0e:
+    case 0x0f:
+        hold = 6; dur = 30; bursts = 1;
+        break;
+    case 0x0c: // mountains and high peaks: heavy rock crunch
+    case 0x0d:
+        hold = 12; dur = 40; bursts = 1;
+        break;
+    case 0x1d: // bridge and roads: short, hard tap
+    case 0x20:
+    case 0x21:
+    case 0x22:
+    case 0x23:
+    case 0x24:
+    case 0x25:
+    case 0x26:
+        hold = 1; dur = 8; bursts = 1;
+        break;
+    default:
+        ULTIMA_433e_AudioFootstep();
+        return;
+    }
+
+    // Two steps, like the original; the second plays while the game moves on.
+    TerrainStep(hold, dur, bursts);
+    TIME_SleepMs(dur + 12);
+    TerrainStep(hold, dur, bursts);
+}
+#endif
 
 // OK P1
 void ULTIMA_4368_AudioVictoryTune(void)
