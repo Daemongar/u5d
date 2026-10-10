@@ -74,11 +74,14 @@ jobs:
         shell: pwsh
         run: |
           dotnet tool install --global wix --version 7.0.0
-          wix extension add WixToolset.UI.wixext -g
+
           # Free to use; the maintenance fee only applies to orgs with
           # >$10k/yr revenue (see https://docs.firegiant.com/wix/osmf/).
           # This flag is the documented non-interactive way to accept it in CI.
+          # Must run before any other wix command (e.g. extension add), or
+          # that command fails the EULA check first.
           wix eula accept wix7
+          wix extension add WixToolset.UI.wixext -g
           wix extension list -g
 
           wix build installer\u5win.wxs `
