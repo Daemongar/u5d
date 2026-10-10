@@ -104,35 +104,79 @@ static void LoadColorTileAtlas(void)
     fprintf(stderr, "Loaded %d full-color tiles from %s\n", s_colorTileCount, path);
 }
 
+typedef enum WindowMode
+{
+    WINDOW_MODE_FULLSCREEN, // borderless, covering the whole screen
+    WINDOW_MODE_BORDERED,   // normal window with title bar, maximized to fill the screen
+    WINDOW_MODE_WINDOWED,   // normal resizable window at [window] width x height
+} WindowMode;
+
+// [window] mode = fullscreen | bordered | windowed. Without it, the older
+// fullscreen=1/0 setting picks fullscreen or bordered.
+static WindowMode ReadWindowMode(void)
+{
+    char mode[32];
+    CONFIG_GetString("window", "mode", "", mode, sizeof(mode));
+
+    if (SDL_strcasecmp(mode, "fullscreen") == 0)
+        return WINDOW_MODE_FULLSCREEN;
+    if (SDL_strcasecmp(mode, "bordered") == 0)
+        return WINDOW_MODE_BORDERED;
+    if (SDL_strcasecmp(mode, "windowed") == 0)
+        return WINDOW_MODE_WINDOWED;
+
+    return CONFIG_GetInt("window", "fullscreen", 1) != 0 ? WINDOW_MODE_FULLSCREEN : WINDOW_MODE_BORDERED;
+}
+
+// Shrink a windowed size (keeping its shape) so it fits on the primary display.
+static void FitWindowToDisplay(int* width, int* height)
+{
+    SDL_Rect usable;
+    if (!SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &usable))
+        return;
+
+    int maxWidth = usable.w * 9 / 10;
+    int maxHeight = usable.h * 9 / 10;
+    if (*width > maxWidth || *height > maxHeight)
+    {
+        float scale = SDL_min((float)maxWidth / *width, (float)maxHeight / *height);
+        *width = (int)(*width * scale);
+        *height = (int)(*height * scale);
+    }
+}
+
 void GRAP_SDL_Initialize(void)
 {
     windowWidth = CONFIG_GetInt("window", "width", windowWidth);
     windowHeight = CONFIG_GetInt("window", "height", windowHeight);
 
     SDL_WindowFlags windowFlags = 0;
+    WindowMode windowMode = ReadWindowMode();
 
-#if defined(ENABLE_BUG_FIX)
-    bool fullscreen = CONFIG_GetInt("window", "fullscreen", 1) != 0;
-    if (fullscreen)
+    switch (windowMode)
     {
+    case WINDOW_MODE_FULLSCREEN:
         windowFlags |= SDL_WINDOW_FULLSCREEN;
-    }
-    else
-    {
+        break;
+    case WINDOW_MODE_BORDERED:
         windowFlags |= SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED;
+        break;
+    case WINDOW_MODE_WINDOWED:
+        windowFlags |= SDL_WINDOW_RESIZABLE;
+        FitWindowToDisplay(&windowWidth, &windowHeight);
+        break;
     }
-#endif
 
     SDL_CreateWindowAndRenderer("Ultima V: Warriors of Destiny", windowWidth, windowHeight, windowFlags, &s_sdlWindow, &s_sdlRenderer);
 
-#if defined(ENABLE_BUG_FIX)
-    if (fullscreen)
+    if (windowMode == WINDOW_MODE_WINDOWED)
     {
-        // BUGFIX: dstRect scaling uses windowWidth/windowHeight, not the live window size,
-        // so they must be updated to the actual fullscreen resolution after creation.
-        SDL_GetWindowSizeInPixels(s_sdlWindow, &windowWidth, &windowHeight);
+        SDL_SetWindowPosition(s_sdlWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     }
-#endif
+
+    // The picture is scaled to the live window size, which in fullscreen and
+    // bordered modes differs from the requested width/height.
+    SDL_GetWindowSizeInPixels(s_sdlWindow, &windowWidth, &windowHeight);
 
     s_sdlSurface = SDL_CreateSurface(hiresWidth, hiresHeight, SDL_GetPixelFormatForMasks(32, 0xff0000, 0xff00, 0xff, 0xff000000));
 

@@ -44,6 +44,23 @@ cmake --build SDL_mixer/build -j && cmake --install SDL_mixer/build
 
 Then build with `make -f Makefile.linux` (or `CONFIG=debug`). The executable is `build/linux/<config>/u5linux`; run it from the directory containing the original game data files.
 
+### Settings
+
+The SDL builds read `ultima5.ini` from the game data directory. The window mode is set under `[window]`:
+
+```ini
+[window]
+mode=windowed   ; fullscreen (default) | bordered | windowed
+width=1280      ; size of the window in windowed mode
+height=960
+```
+
+- `fullscreen`: borderless, covering the whole screen.
+- `bordered`: a normal window with a title bar, maximized to fill the screen.
+- `windowed`: a resizable window at `width` x `height`, shrunk to fit smaller screens.
+
+Without `mode`, the older `fullscreen=1` / `fullscreen=0` setting selects fullscreen or bordered.
+
 ### Optional Full-Color Tiles
 
 The SDL builds can load an optional `TILES.BMP` atlas from the game data directory.
@@ -90,7 +107,7 @@ Ultima V: Changes from the PC-DOS Version
 Platforms
 
 Native Windows and Linux versions, rebuilt from decompiled source and using SDL3.
-Borderless fullscreen by default, or windowed with fullscreen=0 in ultima5.ini.
+Borderless fullscreen by default; bordered fullscreen or a resizable window via mode= in ultima5.ini.
 Data files load regardless of upper/lower case in their names.
 Graphics
 
