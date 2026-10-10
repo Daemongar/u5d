@@ -103,6 +103,8 @@ Esc opens the quit prompt.
 Level-up stat gains are weighted by class.
 Bard mana rounds up.
 Vas Mani (Great Heal) works during combat.
+Casting a spell you lack the MP or level for no longer uses up the mixture or MP ("M.P. too low!" / "Level too low!").
+Cancelling a spell's target, crosshair, or choosing "Pass" for its direction refunds the mixture and MP.
 Game speed is corrected for modern computers.
 Bug fixes
 
@@ -141,7 +143,7 @@ Things learned about the original PC-DOS game while working on the source. They 
 - **Clone (In Quas Xen)** could copy a party member, and the copy shared the original's character record, so killing the clone killed the real character. Its placement loop never gave up and could freeze the game. Fixed under `ENABLE_BUG_FIX`.
 - **Rel Xen Bet** never checked its target and could turn a party member into a hostile creature. Fixed under `ENABLE_BUG_FIX`.
 - **Vas Mani (Great Heal)** was refused until "VICTORY!", although the spell table lists it as castable in combat, so a mid-fight cast wasted the mixture and mana. `ENABLE_VAS_MANI_IN_COMBAT` lets it work.
-- **Failed casts waste resources:** the mixed spell is used up before the mana check, and mana is spent before the level check.
+- **Failed casts waste resources:** the mixed spell is used up before the mana check, and mana is spent before the level check. Backing out of a spell's target or direction prompt also consumes both. `ENABLE_NO_WASTED_CASTS` checks MP and level first and refunds cancelled casts.
 - **Choosing "Pass" as a storm spell's direction froze the game.** The FM Towns version added a check, which the SDL builds include.
 - **Storm spells** (In Zu, In Nox Hur, In Flam Hur, In Vas Grav Corp) hit everyone in their path, including the party.
 - **Charm (An Xen Ex)** toggles the charmed state, so it can free a charmed companion.
