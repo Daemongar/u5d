@@ -113,3 +113,42 @@ Choosing "Pass" with a storm spell no longer freezes the game.
 Several out-of-bounds memory reads from the original code are fixed.
 All gameplay changes and fixes can be switched off in platform.h to get the original behavior. A separate DOS build can still reproduce the original program exactly.
 Sound effects are synthesized in software (`src/audio/aud_sdl.c`) from the parameters the original driver already dispatches (`AUDIO_DispatchPulse`/`Noise`/`Tone`/`SweepTone`), rather than played back from sampled `SFX/*.wav` files - no extra assets required. A handful of IDs with no reachable dispatch path (`mirror`, `drip1`, `drip2`) remain silent.
+
+## Discoveries
+
+Things learned about the original PC-DOS game while working on the source. They come from reading the decompiled code and the original data files, so they describe the DOS program as written. Where a fix exists, it can be switched off in `src/common/platform.h`.
+
+### Combat and Armor
+
+- **Armor had no effect in combat.** Every character's defense was a stored value of 7, which never changes, regardless of what they wore. The routine that totals equipped armor (`ULTIMA_6da8`) contains a comparison that is always false under the original compiler, and combat never called it anyway. The unequip routine recalculates the total and discards it. `ENABLE_BUG_FIX` adds the armor total on top of the base 7.
+- **Item defense values match `DATA.OVL`** byte for byte. The Jewel Shield's defense is 0.
+- **In the Doom dungeon**, armor counts only if Mystic Armour is worn. The Protection spell (In Sanct) adds +3.
+- **Monsters hit for a fixed amount**; player weapons roll a random amount up to the weapon's maximum. Damage is reduced by a random roll from 1 to the defender's defense, and zero or less is a miss.
+- **Fear (In Quas Corp) and Repel Undead (An Xen Corp)** work by setting the monster's HP to 1, which makes it flee.
+
+### Karma
+
+- Karma is a single hidden value from 0 to 99, starting at 75 in `INIT.GAM`. **Ctrl+K** prints it in towns, dungeons and outdoors.
+- **Lowered by:** attacking a townsperson (−5), killing one asleep in bed (another −5), killing one with a ship's cannon (−5), naming a resistance member to Blackthorn (−5), opening a chest in a town or castle (−2), picking crops (−1), eating food off a table (−1), insisting on another drink at a tavern (−1), and some conversation answers (−1).
+- **Raised by:** completing a shrine quest (+3, or +6 for Spirituality), donating gold at a completed shrine (+1 per 100 gold), freeing a chained prisoner (+2), giving gold to a beggar (+1, at most once per 100 turns, +2 more if it was your last gold), and some conversation answers (+1).
+- **Picking up loose items never costs karma**, anywhere, including the Crown, Sceptre and Amulet of Lord British.
+- **Dying** multiplies every character's experience by the karma percentage (unless karma is 98 or more), then raises karma to at least 75, so dying repairs a low reputation. The Resurrect spell (In Mani Corp) applies the same experience penalty, can lower the target's level, and refills their mana.
+- **Lord British's message** when he raises the party, and at each level-up, is chosen from `KARMA.DAT` in bands of 20 karma.
+- Conversation scripts can branch on a minimum karma, so some characters respond differently to a low reputation.
+
+### Spells
+
+- **Clone (In Quas Xen)** could copy a party member, and the copy shared the original's character record, so killing the clone killed the real character. Its placement loop never gave up and could freeze the game. Fixed under `ENABLE_BUG_FIX`.
+- **Rel Xen Bet** never checked its target and could turn a party member into a hostile creature. Fixed under `ENABLE_BUG_FIX`.
+- **Vas Mani (Great Heal)** was refused until "VICTORY!", although the spell table lists it as castable in combat, so a mid-fight cast wasted the mixture and mana. `ENABLE_VAS_MANI_IN_COMBAT` lets it work.
+- **Failed casts waste resources:** the mixed spell is used up before the mana check, and mana is spent before the level check.
+- **Choosing "Pass" as a storm spell's direction froze the game.** The FM Towns version added a check, which the SDL builds include.
+- **Storm spells** (In Zu, In Nox Hur, In Flam Hur, In Vas Grav Corp) hit everyone in their path, including the party.
+- **Charm (An Xen Ex)** toggles the charmed state, so it can free a charmed companion.
+- **Rel Hur's "Pass"** does nothing, while the scroll version calms the wind.
+
+### Odds and Ends
+
+- **The traitor Saduj is recognized by his name:** the code treats any party member whose name has 'j' as its fifth letter as hostile.
+- **The game requests some files in lower case** (`ibm.ch`, `runes.ch`) while the disk files are upper case. DOS ignored the difference; the Linux build matches file names case-insensitively.
+- **Several routines read just outside their arrays**, relying on the DOS memory layout to make the stray reads harmless. These are guarded under `ENABLE_BUG_FIX`.
