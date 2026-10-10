@@ -1054,6 +1054,22 @@ int CAST_0dba_CastSpellCmd(void)
         return; // sic
     }
 
+#if defined(ENABLE_NO_WASTED_CASTS)
+    // The original used up the mixture before checking MP, and the MP before
+    // checking level. Check both first so a cast that can't happen costs nothing.
+    if (D_55a8_party[local_6].mag < local_a)
+    {
+        ULTIMA_1850_PrintString(_TEXT(0x4647, "M.P. too low!\n"));
+        return local_8;
+    }
+
+    if (D_55a8_party[local_6].level < local_a)
+    {
+        ULTIMA_1850_PrintString("Level too low!\n");
+        return local_8;
+    }
+#endif
+
     D_57f0[local_4]--;
     if (D_55a8_party[local_6].mag < local_a)
     {

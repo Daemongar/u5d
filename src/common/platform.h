@@ -116,6 +116,11 @@
 // so casting it mid-battle just wasted the mixture and MP.
 //#define ENABLE_VAS_MANI_IN_COMBAT 1
 
+// Check MP and caster level before casting. The original used up the mixed
+// spell before the MP check and spent the MP before the level check, so a
+// cast that could never succeed still cost the reagents (and often the MP).
+//#define ENABLE_NO_WASTED_CASTS 1
+
 #if defined(TARGET_DOS16)
 #define MATCHING_BUILD 1
 #else
@@ -139,6 +144,7 @@
 #define ENABLE_CLASS_STAT_GROWTH 1
 #define ENABLE_BARD_MANA_ROUNDUP 1
 #define ENABLE_VAS_MANI_IN_COMBAT 1
+#define ENABLE_NO_WASTED_CASTS 1
 //#define ENABLE_TRANSLATION 1
 #endif
 
