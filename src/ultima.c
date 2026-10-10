@@ -3,6 +3,7 @@
 #include "common/common.h"
 #include "common/options.h"
 #include "backend/backend.h"
+#include "backend/data_path.h"
 #include "vars.h"
 #include "funcs.h"
 
@@ -37,6 +38,15 @@ int CDECL main(int argc, char** argv/*, char** envp*/)
 
 #if defined(ENABLE_TRANSLATION)
     TRS_Initialize();
+#endif
+
+#if defined(TARGET_SDL)
+    // Switch into the Ultima V folder (asking for it if needed) before anything
+    // reads game files or ultima5.ini.
+    if (!DATAPATH_Locate(argc, argv))
+    {
+        return 1;
+    }
 #endif
 
 #if !defined(TARGET_DOS16)

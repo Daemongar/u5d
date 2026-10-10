@@ -197,6 +197,9 @@
     <ClCompile Include="..\src\backend\backend.c">
       <Filter>backend</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\backend\data_path.c">
+      <Filter>backend</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\graphics\reveal.c">
       <Filter>graphics</Filter>
     </ClCompile>
@@ -339,6 +342,9 @@
     </ClInclude>
     <ClInclude Include="..\src\graphics\tile_colors.h">
       <Filter>graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\backend\data_path.h">
+      <Filter>backend</Filter>
     </ClInclude>
     <ClInclude Include="..\src\cmds.h">
       <Filter>src</Filter>

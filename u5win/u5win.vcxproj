@@ -232,6 +232,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\src\backend\backend.c" />
+    <ClCompile Include="..\src\backend\data_path.c" />
     <ClCompile Include="..\src\blckthrn.c" />
     <ClCompile Include="..\src\cast.c" />
     <ClCompile Include="..\src\cast2.c" />
@@ -344,6 +345,7 @@
     <ClInclude Include="..\src\common\options.h" />
     <ClInclude Include="..\src\graphics\tile_colors.h" />
     <ClInclude Include="..\src\graphics\app_icon.h" />
+    <ClInclude Include="..\src\backend\data_path.h" />
     <ClInclude Include="..\src\cmds.h" />
     <ClInclude Include="..\src\combat.h" />
     <ClInclude Include="..\src\combat_gen.h" />

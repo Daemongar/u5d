@@ -24,6 +24,18 @@ This is a bug fix and graphics update (640x480 with 32x32 pixel tiles, and full 
 
 The game can be played through to the ending using the original data files. I'm working on fixing spell problems, bugs, and issues with the PC version
 
+## Getting Started
+
+The original Ultima V game files are **not** included; you need your own copy (for example the GOG release of Ultima V). Build the game (see below) and run it:
+
+- From your Ultima V folder, it starts straight away.
+- From anywhere else, it asks you to choose your Ultima V folder the first time and remembers it (in `%APPDATA%\u5d\UltimaV` on Windows, `~/.local/share/u5d/UltimaV` on Linux).
+- `--data <folder>` on the command line picks the folder directly.
+
+A folder counts as Ultima V if it contains `BRIT.DAT`, `DATA.OVL`, `TILES.16` and `INIT.GAM`. GOG installs, which keep `INIT.GAM` and `SAVED.GAM` in `__support/save`, work as they are. Saves (`SAVEGAME/`) and `ultima5.ini` are kept in the game folder.
+
+The full-color `TILES.BMP` is used from the game folder if present, otherwise from next to the program or the repository root, so a fresh build finds the one in this repository. Background music (`BGM/`) is optional; see [Music](#music).
+
 ## Building
 
 ### Windows Target

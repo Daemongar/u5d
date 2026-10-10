@@ -57,15 +57,42 @@ void GRAP_SDL_FlushFrame(void);
 void AUDIO_SDL_Init(void);
 void AUDIO_SDL_Cleanup(void);
 
-static void LoadColorTileAtlas(void)
+// TILES.BMP is looked for in the game data folder, then next to the program,
+// then three folders up from it: the repository root when running a fresh build
+// from build/linux/<config>/ or u5win/x64/<config>/.
+static bool FindColorTileAtlas(char* path, int size)
 {
     FILE* fp = FILE_Open("TILES.BMP", "rb");
-    if (fp == NULL)
-        return;
-    fclose(fp);
+    if (fp != NULL)
+    {
+        fclose(fp);
+        FILE_ResolvePath("TILES.BMP", path, size);
+        return true;
+    }
 
-    char path[512];
-    FILE_ResolvePath("TILES.BMP", path, sizeof(path));
+    const char* base = SDL_GetBasePath();
+    if (base == NULL)
+        return false;
+
+    static const char* s_candidates[] = {"TILES.BMP", "../../../TILES.BMP"};
+    for (int i = 0; i < ARRAYSIZE(s_candidates); i++)
+    {
+        SDL_snprintf(path, size, "%s%s", base, s_candidates[i]);
+        SDL_IOStream* io = SDL_IOFromFile(path, "rb");
+        if (io != NULL)
+        {
+            SDL_CloseIO(io);
+            return true;
+        }
+    }
+    return false;
+}
+
+static void LoadColorTileAtlas(void)
+{
+    char path[1024];
+    if (!FindColorTileAtlas(path, sizeof(path)))
+        return;
 
     SDL_Surface* source = SDL_LoadBMP(path);
     if (source == NULL)

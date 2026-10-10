@@ -64,7 +64,7 @@ void FILE_ResolvePath(const char* path, char* out, int outSize)
     }
 }
 
-FILE* FILE_Open(const char* path, const char* mode)
+static FILE* OpenFile(const char* path, const char* mode)
 {
     char resolved[512];
     FILE* fp = fopen(path, mode);
@@ -82,8 +82,27 @@ void FILE_ResolvePath(const char* path, char* out, int outSize)
     out[outSize - 1] = '\0';
 }
 
-FILE* FILE_Open(const char* path, const char* mode) { return fopen(path, mode); }
+static FILE* OpenFile(const char* path, const char* mode) { return fopen(path, mode); }
 #endif
+
+FILE* FILE_Open(const char* path, const char* mode)
+{
+    FILE* fp = OpenFile(path, mode);
+
+#if !defined(TARGET_DOS16)
+    // The GOG release keeps INIT.GAM and its own SAVED.GAM in __support/save,
+    // layered over the game folder by its DOSBox setup. Read from there when a
+    // file isn't in the game folder itself (writes still go to the game folder).
+    if (fp == NULL && mode[0] == 'r')
+    {
+        char gogPath[512];
+        snprintf(gogPath, sizeof(gogPath), "__support" PATH_SEP "save" PATH_SEP "%s", path);
+        fp = OpenFile(gogPath, mode);
+    }
+#endif
+
+    return fp;
+}
 
 int FILE_ReadU32LE(FILE* fp, u32* out)
 {
