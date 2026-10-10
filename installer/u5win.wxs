@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="Ultima V: Warriors of Destiny (Decompilation)"
+           Manufacturer="u5d Project"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="1831D384-11AC-4B9C-805F-69AB825B69E2"
+           Compressed="yes"
+           InstallerVersion="500"
+           Scope="perUser">
+
+    <SummaryInformation Description="Ultima V: Warriors of Destiny - decompiled engine (requires your own game data)" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of this program is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon.ico" SourceFile="$(var.RepoDir)\u5win\u5win.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Daemongar/u5d" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Daemongar/u5d" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="LocalAppDataProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="Ultima V" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Ultima V" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="*">
+        <File Id="u5winEXE" Source="$(var.StagingDir)\u5win.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="SDL3Dll" Guid="*">
+        <File Id="SDL3Dll" Source="$(var.StagingDir)\SDL3.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="SDL3MixerDll" Guid="*">
+        <File Id="SDL3MixerDll" Source="$(var.StagingDir)\SDL3_mixer.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="VCRuntime140Dll" Guid="*">
+        <File Id="VCRuntime140Dll" Source="$(var.StagingDir)\vcruntime140.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="VCRuntime1401Dll" Guid="*">
+        <File Id="VCRuntime1401Dll" Source="$(var.StagingDir)\vcruntime140_1.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="ReadmeFile" Guid="*">
+        <File Id="ReadmeFile" Source="$(var.RepoDir)\README.md" Name="README.md" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="ShortcutComponents" Directory="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="*">
+        <Shortcut Id="ApplicationStartMenuShortcut"
+                  Name="Ultima V"
+                  Description="Ultima V: Warriors of Destiny (decompilation)"
+                  Target="[INSTALLFOLDER]u5win.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon.ico" />
+        <RemoveFolder Id="CleanUpShortcutFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\u5d\UltimaV" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="MainFeature" Title="Ultima V" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="ShortcutComponents" />
+    </Feature>
+
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.RepoDir)\installer\Disclaimer.rtf" />
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+
+  </Package>
+</Wix>

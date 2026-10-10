@@ -1,0 +1,104 @@
+name: Windows Installer
+
+# Builds u5win.exe (Release|x64), packages it with WiX into a self-contained
+# MSI (no game data included - see src/backend/data_path.c for the in-app
+# prompt that asks the user for their own copy), and attaches it to the
+# GitHub Release for any pushed "v*" tag. Can also be run manually from the
+# Actions tab to produce a downloadable artifact without cutting a release.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Installer version (e.g. 1.0.0)"
+        required: true
+        default: "0.0.0-dev"
+
+permissions:
+  contents: write
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $version = "${{ github.event.inputs.version }}"
+          } else {
+            $version = "${{ github.ref_name }}" -replace '^v', ''
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Integrate vcpkg with MSBuild
+        shell: pwsh
+        run: |
+          $vcpkg = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "vcpkg.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $vcpkg) { throw "Could not find the Visual Studio-bundled vcpkg.exe" }
+          & $vcpkg.FullName integrate install
+
+      - name: Build Release x64
+        run: msbuild u5win\u5win.slnx /p:Configuration=Release /p:Platform=x64 /m
+
+      - name: Stage installer payload
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path staging | Out-Null
+          Copy-Item u5win\x64\Release\u5win.exe staging\
+          Copy-Item u5win\x64\Release\SDL3.dll staging\
+          Copy-Item u5win\x64\Release\SDL3_mixer.dll staging\
+
+          # vcruntime140(_1).dll: bundled app-local so the installed exe needs
+          # nothing beyond what Windows itself already ships (u5win.exe is
+          # statically linked, but the vcpkg-built SDL DLLs are not).
+          $redistDll = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "vcruntime140.dll" -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\x64\\Microsoft\.VC\d+\.CRT\\' -and $_.FullName -notmatch 'debug_nonredist' } |
+            Select-Object -First 1
+          if (-not $redistDll) { throw "Could not find a redistributable vcruntime140.dll" }
+          $redistDir = Split-Path $redistDll.FullName
+          Copy-Item (Join-Path $redistDir "vcruntime140.dll") staging\
+          Copy-Item (Join-Path $redistDir "vcruntime140_1.dll") staging\
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 7.0.0
+          wix extension add WixToolset.UI.wixext -g
+          # Free to use; the maintenance fee only applies to orgs with
+          # >$10k/yr revenue (see https://docs.firegiant.com/wix/osmf/).
+          # This flag is the documented non-interactive way to accept it in CI.
+          wix eula accept wix7
+
+      - name: Build MSI
+        shell: pwsh
+        run: |
+          wix build installer\u5win.wxs `
+            -arch x64 `
+            -ext WixToolset.UI.wixext `
+            -d ProductVersion="${{ steps.version.outputs.version }}" `
+            -d StagingDir="$pwd\staging" `
+            -d RepoDir="$pwd" `
+            -out staging\u5win-installer.msi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: u5win-installer
+          path: staging\u5win-installer.msi
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: staging\u5win-installer.msi
