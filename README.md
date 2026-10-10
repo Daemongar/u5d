@@ -1,8 +1,8 @@
-# u5d - Fixes to the original geme
+# u5d - Fixes to the original game
 
 ## Introduction
 
-This is an update to U5 decompiled st https://github.com/drcarademono/impera
+This is an update to U5 decompiled at https://github.com/drcarademono/impera
 
 This is a bug fix and graphics update (640x480 with 32x32 pixel tiles, and full color tiles.)
 
