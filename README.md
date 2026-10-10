@@ -57,6 +57,14 @@ The full-color atlas is optional and the original 16-color tiles remain the
 default. No additional image libraries are needed. The legacy DOS graphics
 drivers do not load this SDL-specific atlas.
 
+The included `TILES.BMP` is generated from the original `TILES.16` by `tools/upscale_tiles.py` (requires Pillow and NumPy):
+
+```sh
+python3 tools/upscale_tiles.py /path/to/TILES.16 TILES.BMP
+```
+
+It doubles each tile with Scale2x to round off diagonal edges, recolors it with a softer palette and light top/bottom shading, gives terrain and map locations a ground color in place of the black background, and blends terrain dithering into intermediate colors. Copy the result into the game data directory. Animated tiles (water, fire, flags) don't animate when drawn from the atlas.
+
 ### MS-DOS Target (DJGPP)
 
 Run `make` on a machine with DJGPP installed.
