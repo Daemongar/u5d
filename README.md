@@ -131,7 +131,7 @@ Things learned about the original PC-DOS game while working on the source. They 
 ### Karma
 
 - Karma is a single hidden value from 0 to 99, starting at 75 in `INIT.GAM`. **Ctrl+K** prints it in towns, dungeons and outdoors.
-- **Lowered by:** attacking a townsperson (−5), killing one asleep in bed (another −5), killing one with a ship's cannon (−5), naming a resistance member to Blackthorn (−5), opening a chest in a town or castle (−2), picking crops (−1), eating food off a table (−1), insisting on another drink at a tavern (−1), and some conversation answers (−1).
+- **Lowered by:** attacking a townsperson (−5), killing one asleep in bed (another −5), killing one with a ship's cannon (−5), revealing a shrine mantra to Blackthorn (−5, and that shrine is ruined), opening a chest in a town or castle (−2), picking crops (−1), eating food off a table (−1), insisting on another drink at a tavern (−1), and some conversation answers (−1).
 - **Raised by:** completing a shrine quest (+3, or +6 for Spirituality), donating gold at a completed shrine (+1 per 100 gold), freeing a chained prisoner (+2), giving gold to a beggar (+1, at most once per 100 turns, +2 more if it was your last gold), and some conversation answers (+1).
 - **Picking up loose items never costs karma**, anywhere, including the Crown, Sceptre and Amulet of Lord British.
 - **Dying** multiplies every character's experience by the karma percentage (unless karma is 98 or more), then raises karma to at least 75, so dying repairs a low reputation. The Resurrect spell (In Mani Corp) applies the same experience penalty, can lower the target's level, and refills their mana.
@@ -148,6 +148,18 @@ Things learned about the original PC-DOS game while working on the source. They 
 - **Storm spells** (In Zu, In Nox Hur, In Flam Hur, In Vas Grav Corp) hit everyone in their path, including the party.
 - **Charm (An Xen Ex)** toggles the charmed state, so it can free a charmed companion.
 - **Rel Hur's "Pass"** does nothing, while the scroll version calms the wind.
+
+### Party Members
+
+- **The party holds at most six.** Joining has no karma check, although some characters' dialogue depends on karma.
+- **Low karma, bad deeds, and death never make a companion leave.** Dead companions stay in the party until resurrected.
+- **Leaving someone at an inn** is the only voluntary way to part. The innkeeper asks "Who will stay?"; the companion waits at that inn until you check them out. The Avatar and dead companions can't be left.
+- **Blackthorn's interrogation.** When captured, the party is chained and Blackthorn demands a shrine mantra; the answer is checked against the same mantra table the shrines use. The interrogation only happens while he still has a mantra to ask for.
+  - **Refusing or lying:** he asks up to four times as the pendulum descends, then "the pendulum blade falls" on a companion.
+  - **Revealing the mantra:** costs 5 karma and ruins that shrine, and he still kills a companion: "As a token of my esteem for thine honesty, I will grant thy companion a merciful death!" A ruined shrine can be restored with Yell at the ruins, then meditating with its virtue and mantra.
+  - **Captured alone:** the Avatar is spared ("I sense Truth in thee") for the mantra, or thrown in the dungeon for a lie.
+  - **The victim is always the first living companion in party order**, so either answer costs a companion whenever one is present.
+- **Executed companions are gone for good.** They are removed from the party and marked; the Shrine of the Codex later shows an urn for each ("Thou dost see an urn marked: …"). Nothing in the game brings them back.
 
 ### Odds and Ends
 
