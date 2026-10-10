@@ -955,6 +955,13 @@ static void ULTIMA_3c9a_HoleUpCmd(void)
 // TODO: int? byte?
 void ULTIMA_3ef0_IncreaseByte(byte* param_1, int param_2, int param_3)
 {
+#if defined(ENABLE_BUG_FIX)
+    // BUGFIX: a value already above the cap was lowered to it, so a level-up
+    // announcing "stronger!" could cut an imported 50 STR down to 30
+    if (*param_1 >= param_3)
+        return;
+#endif
+
     if (*param_1 + param_2 < param_3)
     {
         *param_1 += param_2;

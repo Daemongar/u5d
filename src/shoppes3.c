@@ -163,7 +163,13 @@ static int SHOPPES3_0072(int param_1, int param_2, int param_3)
                             break;
                         }
 
+#if defined(ENABLE_NO_INN_POISON_DEATH)
+                        // A poisoned guest wakes healed but still poisoned,
+                        // instead of dying in the night.
+                        if (0)
+#else
                         if (local_6->status == STATUS_POISONED)
+#endif
                         {
                             local_6->status = STATUS_DEAD;
                             local_6->hp = 0;

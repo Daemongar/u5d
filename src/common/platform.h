@@ -121,6 +121,15 @@
 // cast that could never succeed still cost the reagents (and often the MP).
 //#define ENABLE_NO_WASTED_CASTS 1
 
+// Poisoned guests wake healed but still poisoned after resting at an inn.
+// The original restored them to full health and then killed them overnight.
+//#define ENABLE_NO_INN_POISON_DEATH 1
+
+// Grant one random stat point per level gained at a level-up apparition.
+// The original gave one point per visit, so skipping levels between visits
+// (e.g. 2 -> 4) lost the points for the skipped levels.
+//#define ENABLE_STAT_PER_LEVEL 1
+
 #if defined(TARGET_DOS16)
 #define MATCHING_BUILD 1
 #else
@@ -145,6 +154,8 @@
 #define ENABLE_BARD_MANA_ROUNDUP 1
 #define ENABLE_VAS_MANI_IN_COMBAT 1
 #define ENABLE_NO_WASTED_CASTS 1
+#define ENABLE_NO_INN_POISON_DEATH 1
+#define ENABLE_STAT_PER_LEVEL 1
 //#define ENABLE_TRANSLATION 1
 #endif
 

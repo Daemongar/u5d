@@ -1057,6 +1057,29 @@ static int INTRO_1016_ConvertU4Savegame(void)
 
     local_6->level = local_8->maxHp / 100;
 
+#if defined(ENABLE_BUG_FIX)
+    // BUGFIX: Ultima IV stats went up to 50 and max HP to 800, and were copied
+    // unchanged. Above INT 33 the shop price formula overflows (everything
+    // costs ~23,600 gold) and selling pays more than buying; the extra HP lasted
+    // until death. Clamp to Ultima V's limits (stats 30, max HP level * 30).
+    if (local_6->level < 1)
+        local_6->level = 1;
+    if (local_6->level > 8)
+        local_6->level = 8;
+    if (local_6->str > 0x1e)
+        local_6->str = 0x1e;
+    if (local_6->dex > 0x1e)
+        local_6->dex = 0x1e;
+    if (local_6->intel > 0x1e)
+        local_6->intel = 0x1e;
+    if (local_6->mag > local_6->intel)
+        local_6->mag = local_6->intel;
+    if (local_6->maxHp > local_6->level * 0x1e)
+        local_6->maxHp = local_6->level * 0x1e;
+    if (local_6->hp > local_6->maxHp)
+        local_6->hp = local_6->maxHp;
+#endif
+
     local_10 = 0x140;
     local_c = &D_bb1c;
 

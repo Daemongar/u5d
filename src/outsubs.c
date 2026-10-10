@@ -513,6 +513,10 @@ void OUTSUBS_0658(void)
             // 070b
             if (D_55a8_party[local_8].level != local_e)
             {
+#if defined(ENABLE_STAT_PER_LEVEL)
+                // One stat point per level gained, not one per apparition visit.
+                int levelsGained = local_e > D_55a8_party[local_8].level ? local_e - D_55a8_party[local_8].level : 1;
+#endif
                 D_55a8_party[local_8].level = local_e;
                 D_55a8_party[local_8].hp = D_55a8_party[local_8].maxHp = local_e * 0x1e;
 
@@ -523,6 +527,14 @@ void OUTSUBS_0658(void)
                 ULTIMA_1a3e_PrintNumber(local_e, 1, 0x20);
                 ULTIMA_1850_PrintString(_TEXT(0x77b8, ", and\n"));
 
+#if defined(ENABLE_STAT_PER_LEVEL)
+                for (int gain = 0; gain < levelsGained; gain++)
+                {
+                if (gain > 0)
+                {
+                    ULTIMA_16ba_PrintChar(0x20);
+                }
+#endif
 #if defined(ENABLE_CLASS_STAT_GROWTH)
                 switch (OUTSUBS_ChooseLevelUpStat(D_55a8_party[local_8].cls))
 #else
@@ -542,6 +554,9 @@ void OUTSUBS_0658(void)
                     ULTIMA_3ef0_IncreaseByte(&D_55a8_party[local_8].intel, 1, 0x1e);
                     break;
                 }
+#if defined(ENABLE_STAT_PER_LEVEL)
+                }
+#endif
 
                 ULTIMA_1850_PrintString(_TEXT(0x77dc, "\" "));
                 ULTIMA_266c_GetChar();
