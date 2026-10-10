@@ -6,6 +6,8 @@
 
 #include "options_menu.h"
 #include "graphics/grap_buf.h"
+#include "key/key.h"
+#include "time/time.h"
 
 #if defined(TARGET_SDL)
 
@@ -264,6 +266,18 @@ static void ChangeItem(OptionItem* item, int direction)
 
 static bool s_menuOpen;
 
+// Wait for a key without the game's own key wait (ULTIMA_266c_GetChar), which
+// updates the game frame while idle and would redraw the map over the menu.
+static int ReadKey(void)
+{
+    int key;
+    while ((key = KEY_PollKey()) == 0)
+    {
+        TIME_SleepMs(10);
+    }
+    return key;
+}
+
 void OPTIONS_MENU_Run(void)
 {
     OptionItem* items[ARRAYSIZE(s_items)];
@@ -284,7 +298,7 @@ void OPTIONS_MENU_Run(void)
     for (;;)
     {
         int previous = selected;
-        int key = ULTIMA_266c_GetChar();
+        int key = ReadKey();
 
         switch (key)
         {
