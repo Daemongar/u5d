@@ -26,7 +26,15 @@ The game can be played through to the ending using the original data files. I'm 
 
 ## Getting Started
 
-The original Ultima V game files are **not** included; you need your own copy (for example the GOG release of Ultima V). Build the game (see below) and run it:
+The original Ultima V game files are **not** included; you need your own copy (for example the GOG release of Ultima V).
+
+### Windows: Installer (no Visual Studio needed)
+
+Download `u5win-installer.msi` from the [latest release](https://github.com/Daemongar/u5d/releases/latest) and run it. It's a self-contained, per-user installer (no admin rights required, nothing else to install) that adds an "Ultima V" shortcut to the Start Menu. Run it once to install, then launch it from there.
+
+### Everyone else: build it (see [Building](#building))
+
+Once you have the game running (installed or built):
 
 - From your Ultima V folder, it starts straight away.
 - From anywhere else, it asks you to choose your Ultima V folder the first time and remembers it (in `%APPDATA%\u5d\UltimaV` on Windows, `~/.local/share/u5d/UltimaV` on Linux).
@@ -40,7 +48,7 @@ The full-color `TILES.BMP` is used from the game folder if present, otherwise fr
 
 ### Windows Target
 
-Open `u5win/u5win.slnx` with Visual Studio 2026 and build the solution.
+Open `u5win/u5win.slnx` with Visual Studio 2026 and build the solution. (If you just want to play the game without installing Visual Studio, use the [installer](#windows-installer-no-visual-studio-needed) instead.)
 
 ### Linux Target
 
