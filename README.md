@@ -60,10 +60,12 @@ drivers do not load this SDL-specific atlas.
 The included `TILES.BMP` is generated from the original `TILES.16` by `tools/upscale_tiles.py` (requires Pillow and NumPy):
 
 ```sh
-python3 tools/upscale_tiles.py /path/to/TILES.16 TILES.BMP
+python3 tools/upscale_tiles.py /path/to/TILES.16 TILES.BMP --header src/graphics/tile_colors.h
 ```
 
-It doubles each tile with Scale2x to round off diagonal edges, recolors it with a softer palette and light top/bottom shading, gives terrain and map locations a ground color in place of the black background, and blends terrain dithering into intermediate colors. Copy the result into the game data directory. Animated tiles (water, fire, flags) don't animate when drawn from the atlas.
+It doubles each tile with Scale2x to round off diagonal edges and recolors it with a softened palette and light top/bottom shading, keeping the original black backgrounds. Copy the result into the game data directory. `--header` also regenerates `src/graphics/tile_colors.h`, the palette the game uses for animated tiles; rebuild after changing it.
+
+Animated tiles (water, lava, flags, fireplaces, shorelines, the clock) keep moving in full color with `ENABLE_ANIMATED_COLOR_TILES`: water and lava scroll their atlas tiles, and any other tile the game rewrites is rendered in full color from its current data.
 
 ### MS-DOS Target (DJGPP)
 
@@ -94,6 +96,7 @@ Graphics
 
 Rendered at 640×400 with 32×32 tiles instead of 320×200.
 An optional full-color tile set (TILES.BMP) replaces any of the original 16-color tiles.
+Animated tiles (water, lava, flags, fireplaces, shorelines, the clock) keep animating in full color.
 A softer, less oversaturated version of the 16-color palette.
 Sound
 

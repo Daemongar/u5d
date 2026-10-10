@@ -2,20 +2,19 @@
 """Build a 32x32 full-color tile atlas (TILES.BMP) from the original TILES.16.
 
 The original tiles are 512 16x16 images in the 16-color EGA palette. This
-script:
+script decodes TILES.16 (the game's LZW format), doubles each tile with
+Scale2x, which rounds off diagonal staircases instead of plain pixel
+doubling, and recolors it with a softened palette and light top/bottom
+shading. Black backgrounds are kept, as in the original.
 
-  1. decodes TILES.16 (the game's LZW format),
-  2. doubles each tile with Scale2x, which rounds off diagonal staircases
-     instead of plain pixel doubling,
-  3. recolors it with a softer, richer palette and light top/bottom shading,
-  4. on terrain tiles only, blends EGA checkerboard dithering into true
-     intermediate colors and adds a little grain.
-
-People, monsters and objects keep crisp edges. The output is a 24-bit BMP,
-32 tiles across, which the SDL builds load from the game data directory.
+The output is a 24-bit BMP, 32 tiles across, which the SDL builds load from
+the game data directory.
 
 Usage: tools/upscale_tiles.py <path/to/TILES.16> <output TILES.BMP>
-Requires Pillow and NumPy.
+                              [--header src/graphics/tile_colors.h]
+
+With --header it also writes the palette the game uses to render animated
+tiles, so they match the atlas. Requires Pillow and NumPy.
 """
 
 import struct
@@ -28,62 +27,25 @@ TILE = 16
 SCALE = 2
 COLUMNS = 32
 
-# Softer, slightly warmer stand-ins for the 16 EGA colors.
+# The 16 EGA colors, softened two thirds of the way toward warmer tones.
 PALETTE = np.array([
-    (14, 12, 18),     # 0  black
-    (28, 56, 140),    # 1  blue
-    (48, 138, 60),    # 2  green
-    (42, 148, 158),   # 3  cyan
-    (158, 40, 34),    # 4  red
-    (138, 52, 138),   # 5  magenta
-    (150, 98, 48),    # 6  brown
-    (172, 168, 160),  # 7  light gray
-    (88, 86, 94),     # 8  dark gray
-    (90, 122, 228),   # 9  light blue
-    (112, 206, 92),   # 10 light green
-    (122, 218, 228),  # 11 light cyan
-    (232, 98, 82),    # 12 light red
-    (218, 112, 218),  # 13 light magenta
-    (244, 218, 102),  # 14 yellow
-    (244, 240, 230),  # 15 white
+    (12, 10, 15),     # 0  black
+    (18, 36, 150),    # 1  blue
+    (31, 149, 39),    # 2  green
+    (27, 156, 162),   # 3  cyan
+    (162, 26, 22),    # 4  red
+    (149, 34, 149),   # 5  magenta
+    (157, 93, 31),    # 6  brown
+    (171, 169, 164),  # 7  light gray
+    (87, 86, 91),     # 8  dark gray
+    (88, 109, 237),   # 9  light blue
+    (103, 223, 90),   # 10 light green
+    (109, 231, 237),  # 11 light cyan
+    (240, 93, 83),    # 12 light red
+    (231, 103, 231),  # 13 light magenta
+    (248, 231, 96),   # 14 yellow
+    (248, 245, 239),  # 15 white
 ], dtype=np.float32)
-
-# Terrain tiles are drawn as colored specks on black. In full color, black
-# becomes a ground color for that terrain (see LOOK2.DAT descriptions).
-GROUND = {
-    0x01: (12, 26, 70),     # deep water
-    0x02: (18, 40, 92),     # water
-    0x03: (34, 70, 112),    # shoals
-    0x04: (50, 62, 36),     # swamp
-    0x05: (36, 76, 32),     # grass
-    0x06: (52, 78, 34),     # brush
-    0x07: (152, 126, 80),   # parched desert
-    0x08: (52, 78, 34),     # brush
-    0x09: (26, 60, 28),     # trees
-    0x0a: (22, 56, 30),     # tropical forest
-    0x0b: (68, 74, 44),     # foothills
-    0x0c: (64, 62, 60),     # mountains
-    0x0d: (72, 72, 78),     # high peaks
-    0x0e: (68, 74, 44),     # foothills
-    0x0f: (68, 74, 44),     # foothills
-    0x1c: (152, 126, 80),   # parched desert
-    0x1e: (152, 126, 80),   # parched desert
-    0x1f: (152, 126, 80),   # parched desert
-    0x2c: (92, 66, 42),     # plowed patch
-    0x2d: (86, 70, 40),     # bountiful crops
-}
-
-# Locations, roads and the like sit on black too; give them ground so they
-# don't show as black squares on the map. Only background black (connected
-# to the tile edge) is replaced, so doorways and windows stay dark.
-GRASS, ROCK, WATER, SAND = (36, 76, 32), (64, 62, 60), (18, 40, 92), (152, 126, 80)
-BACKDROP = {t: GRASS for t in range(0x10, 0x1c)}
-BACKDROP.update({0x16: ROCK, 0x17: ROCK, 0x18: ROCK})     # cave, mine, dungeon
-BACKDROP.update({t: GRASS for t in range(0x20, 0x27)})    # roads
-BACKDROP.update({0x1d: WATER, 0x2e: GRASS, 0x2f: SAND})   # bridge, fruit tree, cactus
-
-# Tiles that get dither blending and grain.
-TERRAIN = set(GROUND)
 
 
 def lzw_decompress(data):
@@ -170,39 +132,9 @@ def scale2x(img):
     return out
 
 
-def box_blur(rgb):
-    p = np.pad(rgb, ((1, 1), (1, 1), (0, 0)), mode='edge')
-    acc = np.zeros_like(rgb)
-    for dy in range(3):
-        for dx in range(3):
-            acc += p[dy:dy + rgb.shape[0], dx:dx + rgb.shape[1]]
-    return acc / 9.0
-
-
-def edge_connected(mask):
-    """Pixels of mask reachable from the tile border (4-connected)."""
-    h, w = mask.shape
-    seen = np.zeros_like(mask, dtype=bool)
-    stack = [(y, x) for y in range(h) for x in (0, w - 1) if mask[y, x]]
-    stack += [(y, x) for x in range(w) for y in (0, h - 1) if mask[y, x]]
-    while stack:
-        y, x = stack.pop()
-        if seen[y, x]:
-            continue
-        seen[y, x] = True
-        for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
-            if 0 <= ny < h and 0 <= nx < w and mask[ny, nx] and not seen[ny, nx]:
-                stack.append((ny, nx))
-    return seen
-
-
-def render_tile(index, idx16, rng):
+def render_tile(idx16):
     idx32 = scale2x(idx16)
     rgb = PALETTE[idx32].copy()
-    if index in GROUND:
-        rgb[idx32 == 0] = GROUND[index]
-    elif index in BACKDROP:
-        rgb[edge_connected(idx32 == 0)] = BACKDROP[index]
 
     # Shading: lighten the top edge of each shape, darken the bottom edge.
     up = np.pad(idx32, ((1, 0), (0, 0)), mode='edge')[:-1]
@@ -212,41 +144,44 @@ def render_tile(index, idx16, rng):
     shade[down != idx32] *= 0.86
     rgb *= shade[:, :, None]
 
-    if index in TERRAIN:
-        # Blend checkerboard dithering into intermediate colors: weight by how
-        # many of a source pixel's neighbors differ from it.
-        p = np.pad(idx16, 1, mode='edge')
-        c = p[1:-1, 1:-1]
-        busy = ((p[:-2, 1:-1] != c).astype(np.float32) + (p[2:, 1:-1] != c) +
-                (p[1:-1, :-2] != c) + (p[1:-1, 2:] != c)) / 4.0
-        weight = np.kron(busy, np.ones((SCALE, SCALE)))[:, :, None] * 0.75
-        rgb = rgb * (1.0 - weight) + box_blur(rgb) * weight
-
-        # A little grain so repeated terrain doesn't look flat.
-        grain = rng.normal(1.0, 0.035, idx32.shape).astype(np.float32)
-        rgb *= grain[:, :, None]
-
     return np.clip(rgb, 0, 255).astype(np.uint8)
 
 
+def write_header(path):
+    """Emit the palette the game uses to render animated tiles the same way."""
+    with open(path, 'w') as f:
+        f.write("/* Generated by tools/upscale_tiles.py - do not edit by hand. */\n")
+        f.write("#ifndef _GRAPHICS_TILE_COLORS_H\n#define _GRAPHICS_TILE_COLORS_H\n\n")
+        f.write("static const u32 g_tilePalette[16] =\n{\n" +
+                "\n".join("    0x%02x%02x%02x," % tuple(c.astype(int)) for c in PALETTE) + "\n};\n\n#endif\n")
+    print(f"Wrote {path}")
+
+
 def main():
-    if len(sys.argv) != 3:
+    args = sys.argv[1:]
+    header = None
+    if '--header' in args:
+        i = args.index('--header')
+        header = args[i + 1]
+        del args[i:i + 2]
+    if len(args) != 2:
         sys.exit(__doc__)
 
-    with open(sys.argv[1], 'rb') as f:
+    with open(args[0], 'rb') as f:
         tiles = decode_tiles(lzw_decompress(f.read()))
 
     size = TILE * SCALE
     rows = (len(tiles) + COLUMNS - 1) // COLUMNS
     atlas = np.zeros((rows * size, COLUMNS * size, 3), dtype=np.uint8)
-    rng = np.random.default_rng(1988)
 
     for i, tile in enumerate(tiles):
         r, c = divmod(i, COLUMNS)
-        atlas[r * size:(r + 1) * size, c * size:(c + 1) * size] = render_tile(i, tile, rng)
+        atlas[r * size:(r + 1) * size, c * size:(c + 1) * size] = render_tile(tile)
 
-    Image.fromarray(atlas, 'RGB').save(sys.argv[2], format='BMP')
-    print(f"Wrote {len(tiles)} tiles ({atlas.shape[1]}x{atlas.shape[0]}) to {sys.argv[2]}")
+    Image.fromarray(atlas, 'RGB').save(args[1], format='BMP')
+    print(f"Wrote {len(tiles)} tiles ({atlas.shape[1]}x{atlas.shape[0]}) to {args[1]}")
+    if header:
+        write_header(header)
 
 
 if __name__ == '__main__':

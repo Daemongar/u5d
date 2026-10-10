@@ -143,6 +143,10 @@
 // hills, mountains, roads). The original played the same click everywhere.
 //#define ENABLE_TERRAIN_FOOTSTEPS 1
 
+// Keep animated tiles (water, lava, flags, fireplaces, shorelines, clock,
+// ladders) moving when drawn from the full-color TILES.BMP atlas.
+//#define ENABLE_ANIMATED_COLOR_TILES 1
+
 #if defined(TARGET_DOS16)
 #define MATCHING_BUILD 1
 #else
@@ -172,6 +176,7 @@
 #define ENABLE_VANISHING_RINGS 1
 #define ENABLE_U4_CLASS_MANA 1
 #define ENABLE_TERRAIN_FOOTSTEPS 1
+#define ENABLE_ANIMATED_COLOR_TILES 1
 //#define ENABLE_TRANSLATION 1
 #endif
 

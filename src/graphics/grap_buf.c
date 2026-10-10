@@ -7,6 +7,9 @@
 #include "grap_buf.h"
 #include "animate.h"
 #include "reveal.h"
+#if defined(ENABLE_ANIMATED_COLOR_TILES)
+#include "tile_colors.h"
+#endif
 
 #if defined(ENABLE_GRAP_OVERLAY_DEBUG)
 #include "common/dbg_font_data.h"
@@ -48,6 +51,11 @@ static u8 s_colorTable[16] = {0, 1, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 
 
 static byte* s_tileset;
 
+#if defined(ENABLE_ANIMATED_COLOR_TILES)
+static byte* s_tilesetPristine; // tileset as loaded, to spot animated tiles
+static u32* s_dynCache;         // full-color renders of animated tiles
+#endif
+
 static pfGrapFlushFrame* s_pfFlushFrame;
 
 static u32 s_lastPresentTick = 0;
@@ -87,6 +95,13 @@ void GRAP_BUF_Cleanup(void)
         free(s_tileset);
         s_tileset = NULL;
     }
+
+#if defined(ENABLE_ANIMATED_COLOR_TILES)
+    free(s_tilesetPristine);
+    s_tilesetPristine = NULL;
+    free(s_dynCache);
+    s_dynCache = NULL;
+#endif
 
     free(g_linearEgaBuffer0);
     free(g_linearEgaBuffer1);
@@ -454,9 +469,149 @@ void GRAP_BUF_FillWindow(int x1, int y1, int x2, int y2, int xorMode)
     }
 }
 
+#if defined(ENABLE_ANIMATED_COLOR_TILES)
+//
+// Animated full-color tiles. The game animates tiles (water, lava, flags,
+// fireplaces, shorelines, the clock, ladders, the ending) by rewriting the
+// 16-color tile data, which the static TILES.BMP atlas bypasses. Water and lava
+// only scroll down a row per frame, so their atlas tiles are drawn with the
+// same scroll. Any other tile whose data no longer matches the tileset as
+// loaded is rendered in full color from its current data, using the same steps
+// as tools/upscale_tiles.py and its generated palette (tile_colors.h), and
+// cached until it changes again.
+//
+
+#define COLOR_TILE_COUNT 512
+#define TILE_BYTES 0x80
+
+static u32 s_tileAnimFrame;
+static byte s_dynSource[COLOR_TILE_COUNT][TILE_BYTES];
+static bool s_dynValid[COLOR_TILE_COUNT];
+
+static void DynDecodeScale2x(const byte* data, byte src[16][16], byte idx[32][32])
+{
+    for (int y = 0; y < 16; y++)
+    {
+        for (int x = 0; x < 16; x += 2)
+        {
+            src[y][x] = data[y * 8 + x / 2] >> 4;
+            src[y][x + 1] = data[y * 8 + x / 2] & 0x0f;
+        }
+    }
+
+    // Scale2x, clamped at the tile edges.
+    for (int y = 0; y < 16; y++)
+    {
+        for (int x = 0; x < 16; x++)
+        {
+            byte c = src[y][x];
+            byte a = src[y > 0 ? y - 1 : y][x];
+            byte d = src[y < 15 ? y + 1 : y][x];
+            byte l = src[y][x > 0 ? x - 1 : x];
+            byte r = src[y][x < 15 ? x + 1 : x];
+
+            idx[y * 2][x * 2] = (l == a && l != d && a != r) ? a : c;
+            idx[y * 2][x * 2 + 1] = (a == r && a != l && r != d) ? r : c;
+            idx[y * 2 + 1][x * 2] = (d == l && d != r && l != a) ? l : c;
+            idx[y * 2 + 1][x * 2 + 1] = (r == d && r != a && d != l) ? d : c;
+        }
+    }
+}
+
+static void DynRenderTile(int tileIdx, const byte* data, u32* out)
+{
+    byte src[16][16];
+    byte idx[32][32];
+
+    (void)tileIdx;
+    DynDecodeScale2x(data, src, idx);
+
+    for (int y = 0; y < 32; y++)
+    {
+        for (int x = 0; x < 32; x++)
+        {
+            byte c = idx[y][x];
+            u32 base = g_tilePalette[c];
+            float shade = 1.0f;
+            if (y > 0 && idx[y - 1][x] != c) shade *= 1.10f;
+            if (y < 31 && idx[y + 1][x] != c) shade *= 0.86f;
+
+            u32 px = 0;
+            for (int k = 0; k < 3; k++)
+            {
+                float v = (float)((base >> (16 - 8 * k)) & 0xff) * shade;
+                int iv = v < 0 ? 0 : (v > 255 ? 255 : (int)v);
+                px |= (u32)iv << (16 - 8 * k);
+            }
+            out[y * 32 + x] = px;
+        }
+    }
+}
+
+// Water 1-3 and lava only scroll down one row per animation frame.
+static bool IsScrollingTile(int tileIdx)
+{
+    return tileIdx == 0x01 || tileIdx == 0x02 || tileIdx == 0x03 || tileIdx == 0x8f;
+}
+
+// Returns the full-color source for a tile: its 32x32 pixels, row stride and
+// a vertical scroll (in rows) to apply when reading.
+static const u32* GetColorTileSource(int tileIdx, int* stride, int* scroll)
+{
+    *scroll = 0;
+    *stride = s_colorTileColumns * tilePixelSize;
+    const u32* atlasTile = &s_colorTileAtlas[(tileIdx / s_colorTileColumns) * tilePixelSize * *stride +
+                                             (tileIdx % s_colorTileColumns) * tilePixelSize];
+
+    if (s_tileset == NULL || s_tilesetPristine == NULL || tileIdx >= COLOR_TILE_COUNT)
+        return atlasTile;
+
+    if (IsScrollingTile(tileIdx))
+    {
+        *scroll = (int)((s_tileAnimFrame * loresToHiresRatio) % tilePixelSize);
+        return atlasTile;
+    }
+
+    const byte* current = &s_tileset[TILE_BYTES * tileIdx];
+    if (memcmp(current, &s_tilesetPristine[TILE_BYTES * tileIdx], TILE_BYTES) == 0)
+        return atlasTile;
+
+    if (s_dynCache == NULL)
+    {
+        s_dynCache = malloc(COLOR_TILE_COUNT * tilePixelSize * tilePixelSize * sizeof(u32));
+        if (s_dynCache == NULL)
+            return atlasTile;
+    }
+
+    u32* cached = &s_dynCache[tileIdx * tilePixelSize * tilePixelSize];
+    if (!s_dynValid[tileIdx] || memcmp(current, s_dynSource[tileIdx], TILE_BYTES) != 0)
+    {
+        DynRenderTile(tileIdx, current, cached);
+        memcpy(s_dynSource[tileIdx], current, TILE_BYTES);
+        s_dynValid[tileIdx] = true;
+    }
+
+    *stride = tilePixelSize;
+    return cached;
+}
+#endif
+
 void GRAP_BUF_LoadTileset(byte* tileset)
 {
     s_tileset = tileset;
+
+#if defined(ENABLE_ANIMATED_COLOR_TILES)
+    free(s_tilesetPristine);
+    s_tilesetPristine = NULL;
+    if (tileset != NULL)
+    {
+        s_tilesetPristine = malloc(COLOR_TILE_COUNT * TILE_BYTES);
+        if (s_tilesetPristine != NULL)
+            memcpy(s_tilesetPristine, tileset, COLOR_TILE_COUNT * TILE_BYTES);
+    }
+    s_tileAnimFrame = 0;
+    memset(s_dynValid, 0, sizeof(s_dynValid));
+#endif
 }
 
 void GRAP_BUF_LoadColorTileAtlas(u32* pixels, int columns, int tileCount)
@@ -477,6 +632,9 @@ void GRAP_BUF_UnloadTileset(void)
 
 void GRAP_BUF_AnimateTileset(void)
 {
+#if defined(ENABLE_ANIMATED_COLOR_TILES)
+    s_tileAnimFrame++;
+#endif
     AnimateTileset(s_tileset);
 }
 
@@ -494,9 +652,15 @@ void GRAP_BUF_PutTile(int tileX, int tileY, int tileIdx, int xOffset, int yOffse
         u8* colorMask = GetColorMask(page);
         int dstX = tileX * tilePixelSize + xOffset * loresToHiresRatio;
         int dstY = tileY * tilePixelSize + yOffset * loresToHiresRatio;
+#if defined(ENABLE_ANIMATED_COLOR_TILES)
+        int stride;
+        int scroll;
+        const u32* source = GetColorTileSource(tileIdx, &stride, &scroll);
+#else
         int srcX = (tileIdx % s_colorTileColumns) * tilePixelSize;
         int srcY = (tileIdx / s_colorTileColumns) * tilePixelSize;
         int atlasWidth = s_colorTileColumns * tilePixelSize;
+#endif
 
         for (int y = 0; y < tilePixelSize; y++)
         {
@@ -511,7 +675,12 @@ void GRAP_BUF_PutTile(int tileX, int tileY, int tileIdx, int xOffset, int yOffse
                     continue;
 
                 int dst = outY * renderWidth + outX;
+#if defined(ENABLE_ANIMATED_COLOR_TILES)
+                int srcRow = (y - scroll + tilePixelSize) % tilePixelSize;
+                colorPixels[dst] = source[srcRow * stride + x];
+#else
                 colorPixels[dst] = s_colorTileAtlas[(srcY + y) * atlasWidth + srcX + x];
+#endif
                 colorMask[dst] = 1;
             }
         }
@@ -537,6 +706,7 @@ void GRAP_BUF_PutTile(int tileX, int tileY, int tileIdx, int xOffset, int yOffse
 
     s_dirty = true;
 }
+
 
 void GRAP_BUF_PutAnimatedMoongateTile(int tileX, int tileY, int visibleRows, byte floorType, int xOffset, int yOffset)
 {
