@@ -32,6 +32,8 @@ The original Ultima V game files are **not** included; you need your own copy (f
 
 Download `u5win-installer.msi` from the [latest release](https://github.com/Daemongar/u5d/releases/latest) and run it. It's a self-contained, per-user installer (no admin rights required, nothing else to install) that adds an "Ultima V" shortcut to the Start Menu. Run it once to install, then launch it from there.
 
+The installer isn't code-signed yet, so Windows may show "Windows protected your PC" (SmartScreen). Click **More info**, then **Run anyway**. Alternatively, right-click the downloaded file, choose **Properties**, tick **Unblock**, and click OK before running it.
+
 ### Everyone else: build it (see [Building](#building))
 
 Once you have the game running (installed or built):
