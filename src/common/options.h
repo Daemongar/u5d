@@ -18,7 +18,7 @@ typedef struct Options
 {
     // Display
     int windowMode;
-    bool keepAspect; // 4:3 picture with black bars instead of stretching
+    bool keepAspect; // keep the picture's shape (4:3, or the wide view's) with black bars instead of stretching
     bool colorTiles; // use TILES.BMP when present
     bool enhancedPalette;
     bool wideView; // 17-column map for 16:9 screens instead of the original 11

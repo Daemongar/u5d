@@ -77,7 +77,7 @@ width=1280           ; window size in windowed mode
 height=960
 
 [display]
-keep_aspect=0        ; 1: keep the 4:3 shape with black bars
+keep_aspect=0        ; 1: keep the picture's shape (4:3, or wider in wide view) with black bars
 color_tiles=1        ; use TILES.BMP when present
 enhanced_palette=1   ; softer 16-color palette
 wide_view=0          ; 1: 17-column map for 16:9 screens

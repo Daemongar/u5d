@@ -49,7 +49,7 @@ typedef struct OptionItem
 static OptionItem s_items[] =
 {
     {PAGE_DISPLAY, ITEM_WINDOW_MODE, "Window mode", NULL, &g_options.windowMode},
-    {PAGE_DISPLAY, ITEM_TOGGLE, "Keep 4:3 shape", &g_options.keepAspect, NULL},
+    {PAGE_DISPLAY, ITEM_TOGGLE, "Keep aspect ratio", &g_options.keepAspect, NULL},
     {PAGE_DISPLAY, ITEM_TOGGLE, "Full-color tiles", &g_options.colorTiles, NULL},
     {PAGE_DISPLAY, ITEM_TOGGLE, "Softer palette", &g_options.enhancedPalette, NULL},
     {PAGE_DISPLAY, ITEM_TOGGLE, "Wide view (16:9)", &g_options.wideView, NULL},
@@ -98,34 +98,16 @@ static void PrintCentered(int y, char* text)
     PrintAt((SCREEN_RIGHT + 1 - (int)strlen(text)) / 2, y, text);
 }
 
-// The game's frame characters around the whole screen, as the title menu draws
-// around its box (see INTRO_04e0_DrawMenuBorders).
+// A rectangle around the whole screen, drawn with lines like the title menu's
+// box (INTRO_04e0_DrawMenuBorders). The frame character 0x7f is not used: in
+// the game's font it is a thin bar, so only the sides showed.
 static void DrawFrame(void)
 {
-    ULTIMA_1cca_SetTextForegroundColor(D_13b2_frame_color);
-
-    ULTIMA_1bf2_SetTextPosition(0, 0);
-    ULTIMA_16ba_PrintChar(0x7b);
-    for (int i = 1; i < SCREEN_RIGHT; i++)
-        ULTIMA_16ba_PrintChar(0x7f);
-    ULTIMA_16ba_PrintChar(0x7c);
-
-    for (int y = 1; y < SCREEN_BOTTOM; y++)
-    {
-        ULTIMA_1bf2_SetTextPosition(0, y);
-        ULTIMA_16ba_PrintChar(0x7f);
-        ULTIMA_1bf2_SetTextPosition(SCREEN_RIGHT, y);
-        ULTIMA_16ba_PrintChar(0x7f);
-    }
-
-    ULTIMA_1bf2_SetTextPosition(0, SCREEN_BOTTOM);
-    ULTIMA_16ba_PrintChar(0x7d);
-    for (int i = 1; i < SCREEN_RIGHT; i++)
-        ULTIMA_16ba_PrintChar(0x7f);
-    D_538e = 0; // don't advance (and scroll) past the last cell
-    ULTIMA_16ba_PrintChar(0x7e);
-    D_538e = 1;
-
+    ULTIMA_0a70_GRAP_2d_SetPenColor(D_13b0_white_color);
+    ULTIMA_0b10_GRAP_Line(4, 4, 315, 4);
+    ULTIMA_0f90_GRAP_Pen(315, 195);
+    ULTIMA_0f90_GRAP_Pen(4, 195);
+    ULTIMA_0f90_GRAP_Pen(4, 4);
     ULTIMA_1cca_SetTextForegroundColor(D_13b0_white_color);
 }
 
@@ -289,6 +271,10 @@ void OPTIONS_MENU_Run(void)
 
     s_menuOpen = true;
     g_presentFullScreenPage = true; // full-screen page: centered in the wide view
+
+    // Text must advance as it's printed; the game may have this off when F1
+    // is pressed (OPTIONS_MENU_RunInGame restores it afterwards).
+    D_538e = 1;
 
     ULTIMA_1c22_SetTextWindowSize(0, 0, 0, SCREEN_RIGHT, SCREEN_BOTTOM);
     ULTIMA_1b94_SelectTextWindow(0);
