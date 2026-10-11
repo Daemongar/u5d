@@ -47,6 +47,10 @@
       <Component Id="VCRuntime1401Dll" Guid="*">
         <File Id="VCRuntime1401Dll" Source="$(var.StagingDir)\vcruntime140_1.dll" KeyPath="yes" />
       </Component>
+      <!-- Full-color tile sheet; the game finds it next to u5win.exe. -->
+      <Component Id="TileAtlas" Guid="*">
+        <File Id="TileAtlas" Source="$(var.RepoDir)\TILES.BMP" Name="TILES.BMP" KeyPath="yes" />
+      </Component>
       <Component Id="ReadmeFile" Guid="*">
         <File Id="ReadmeFile" Source="$(var.RepoDir)\README.md" Name="README.md" KeyPath="yes" />
       </Component>
