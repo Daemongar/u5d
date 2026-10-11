@@ -26,7 +26,8 @@
 //     columns are treated as lit, or the wide view would be a circle.
 //   - line of sight: no view-blocking tile (D_6a86, see ULTIMA_5dfe) on the
 //     straight line between the party and the square.
-// Only outdoors and in towns; dungeons and combat keep black strips.
+// Only outdoors and in towns; dungeons and combat keep black strips. Past a
+// town map's edge the stand-in tile is shown, as in the game's own view.
 
 int g_wideExtraTiles[WIDE_EXTRA_ROWS][2 * WIDE_EXTRA_COLUMNS];
 bool g_wideExtraTilesReady; // false until the map has been drawn once
@@ -85,14 +86,14 @@ static bool BlocksView(byte tile)
     return memchr(D_6a86, tile, sizeof(D_6a86)) != NULL;
 }
 
-// World tile at an offset from the party, or -1 off the edge of a town map.
+// World tile at an offset from the party. Past a town map's edge this is the
+// same stand-in the game's own view shows there (ULTIMA_4402_GetTileAddr
+// returns D_6a07, the map's last square, usually grass).
 static int TileAt(int dx, int dy)
 {
     int x = (int)D_5896_map_x + dx;
     int y = (int)D_5897_map_y + dy;
 
-    if (D_5893_map_id != 0 && (x < 0 || y < 0 || x > 0x1f || y > 0x1f))
-        return -1;
     if (D_5893_map_id == 0)
     {
         // Outside the loaded 32x32 block, read the world map instead (the
