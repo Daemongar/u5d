@@ -303,9 +303,14 @@ static void LinearToRGB(void)
 // so it is centered like the title screens rather than laid out as a map.
 bool g_presentFullScreenPage;
 
+// True until the title sequence ends (Journey Onward): the logo screens, the
+// menu and its "Return to the View" demo are all centered, even when the demo
+// shows the overworld (it draws the map itself, so there are no extra columns).
+bool g_presentTitleScreens = true;
+
 static bool IsMapScreen(void)
 {
-    return !g_presentFullScreenPage && D_5893_map_id != 0x40 && D_5893_map_id != 0x41;
+    return !g_presentTitleScreens && !g_presentFullScreenPage && D_5893_map_id != 0x40 && D_5893_map_id != 0x41;
 }
 
 static void ComposeFrame(void)

@@ -88,6 +88,14 @@ int CDECL main(int argc, char** argv/*, char** envp*/)
     D_538c = 1;
 
     INTRO_0986_Main(); // 00ad
+
+#if defined(TARGET_SDL)
+    // The title sequence is over; the wide view lays out map screens from here.
+    {
+        extern bool g_presentTitleScreens;
+        g_presentTitleScreens = false;
+    }
+#endif
     ULTIMA_2900_UpdateVitalsDisplay();
 
 #if !defined(TARGET_DOS16)
