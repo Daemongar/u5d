@@ -80,6 +80,7 @@ height=960
 keep_aspect=0        ; 1: keep the 4:3 shape with black bars
 color_tiles=1        ; use TILES.BMP when present
 enhanced_palette=1   ; softer 16-color palette
+wide_view=0          ; 1: 17-column map for 16:9 screens
 
 [sound]
 music=1
@@ -153,6 +154,7 @@ Graphics
 Rendered at 640×400 with 32×32 tiles instead of 320×200.
 An optional full-color tile set (TILES.BMP) replaces any of the original 16-color tiles.
 Animated tiles (water, lava, flags, fireplaces, shorelines, the clock) keep animating in full color.
+An optional Wide view (16:9) shows a 17-column map outdoors and in towns instead of 11, with the stats panel at the right edge; combat keeps its 11x11 battlefield.
 A softer, less oversaturated version of the 16-color palette.
 Sound
 
