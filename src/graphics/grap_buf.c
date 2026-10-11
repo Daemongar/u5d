@@ -721,6 +721,51 @@ void GRAP_BUF_UpdateTimeTileset(int mode, byte hour, byte minute)
     AnimateTimeTileset(s_tileset, mode, hour, minute);
 }
 
+// A tile as 32x32 RGB pixels, for drawing outside the game's own screen (the
+// wide view's extra columns): the full-color atlas when loaded (animated like
+// GRAP_BUF_PutTile), otherwise the 16-color tile doubled with the given palette.
+void GRAP_BUF_RenderTileRGB(int tileIdx, const u32* palette, u32* out)
+{
+    if (s_colorTileAtlas != NULL && tileIdx >= 0 && tileIdx < s_colorTileCount)
+    {
+#if defined(ENABLE_ANIMATED_COLOR_TILES)
+        int stride;
+        int scroll;
+        const u32* source = GetColorTileSource(tileIdx, &stride, &scroll);
+#else
+        int stride = s_colorTileColumns * tilePixelSize;
+        int scroll = 0;
+        const u32* source = &s_colorTileAtlas[(tileIdx / s_colorTileColumns) * tilePixelSize * stride +
+                                              (tileIdx % s_colorTileColumns) * tilePixelSize];
+#endif
+        for (int y = 0; y < tilePixelSize; y++)
+        {
+            const u32* row = &source[((y - scroll + tilePixelSize) % tilePixelSize) * stride];
+            for (int x = 0; x < tilePixelSize; x++)
+                out[y * tilePixelSize + x] = 0xff000000 | row[x];
+        }
+        return;
+    }
+
+    if (s_tileset == NULL || tileIdx < 0 || tileIdx >= 512)
+    {
+        for (int i = 0; i < tilePixelSize * tilePixelSize; i++)
+            out[i] = palette[0];
+        return;
+    }
+
+    const byte* tile = &s_tileset[0x80 * tileIdx];
+    for (int y = 0; y < tilePixelSize; y++)
+    {
+        for (int x = 0; x < tilePixelSize; x++)
+        {
+            int sx = x / loresToHiresRatio;
+            byte packed = tile[(y / loresToHiresRatio) * (tileSourcePixelSize / 2) + sx / 2];
+            out[y * tilePixelSize + x] = palette[(sx & 1) ? (packed & 0x0f) : (packed >> 4)];
+        }
+    }
+}
+
 void GRAP_BUF_PutTile(int tileX, int tileY, int tileIdx, int xOffset, int yOffset)
 {
     int page = D_52ba_vdp._52d8_page;

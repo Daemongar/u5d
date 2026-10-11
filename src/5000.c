@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "wide_view.h"
 #include "vars.h"
 #include "funcs.h"
 #include "macros.h"
@@ -312,6 +313,10 @@ void ULTIMA_56ac_DrawMap(void)
             }
         }
     }
+
+#if defined(TARGET_SDL)
+    WIDE_UpdateExtraTiles();
+#endif
 
     if (0x7f < D_5893_map_id && (D_589f = !D_589f) != 0 && D_589e != 0xff && ULTIMA_5646(D_589e) == 0)
     {
@@ -679,6 +684,12 @@ void ULTIMA_5d0a(int param_1_light, int param_2_x, int param_3_y, int param_4)
             }
         }
     }
+
+#if defined(TARGET_SDL)
+    // Ready for the first frame, which may be shown with a reveal effect
+    // instead of ULTIMA_56ac_DrawMap.
+    WIDE_UpdateExtraTiles();
+#endif
 }
 
 // OK P1

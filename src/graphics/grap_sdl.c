@@ -299,9 +299,13 @@ static void LinearToRGB(void)
 // to the right edge; the strips beside the map are WIDE_EXTRA_WIDTH each
 // (black for now, with the frame's top and bottom borders carried across).
 // Other screens (title, intro) are centered.
+// Set while a full-screen page is shown over the game (the Options screen),
+// so it is centered like the title screens rather than laid out as a map.
+bool g_presentFullScreenPage;
+
 static bool IsMapScreen(void)
 {
-    return D_5893_map_id != 0x40 && D_5893_map_id != 0x41;
+    return !g_presentFullScreenPage && D_5893_map_id != 0x40 && D_5893_map_id != 0x41;
 }
 
 static void ComposeFrame(void)
@@ -336,6 +340,17 @@ static void ComposeFrame(void)
     }
 
     g_presentLayout = PRESENT_LAYOUT_WIDE_MAP;
+
+    // Draw the extra squares' tiles (from WIDE_UpdateExtraTiles) once per frame.
+    static Uint32 tiles[WIDE_EXTRA_ROWS][2 * WIDE_EXTRA_COLUMNS][tilePixelSize * tilePixelSize];
+    // Black until the game has drawn its map once (the table starts zeroed,
+    // which would otherwise show tile 0 everywhere).
+    bool extrasReady = g_wideExtraTilesReady;
+    for (int row = 0; extrasReady && row < WIDE_EXTRA_ROWS; row++)
+        for (int col = 0; col < 2 * WIDE_EXTRA_COLUMNS; col++)
+            if (g_wideExtraTiles[row][col] >= 0)
+                GRAP_BUF_RenderTileRGB(g_wideExtraTiles[row][col], CurrentPalette(), tiles[row][col]);
+
     for (int y = 0; y < hiresHeight; y++)
     {
         Uint32* row = &out[y * pitch];
@@ -346,11 +361,26 @@ static void ComposeFrame(void)
         {
             int srcX = WideToGameX(x);
             if (srcX >= 0)
+            {
                 row[x] = src[srcX];
+            }
             else if (borderRow)
+            {
                 row[x] = src[MAP_RENDER_LEFT + (x % 16)]; // carry the frame border across
+            }
             else
-                row[x] = black;
+            {
+                // An extra square: left strip starts at the map's old left edge,
+                // the right strip right after the (moved) map.
+                int stripX = x < MAP_RENDER_RIGHT ? x - MAP_RENDER_LEFT
+                                                  : x - (MAP_RENDER_RIGHT + WIDE_EXTRA_WIDTH) + WIDE_EXTRA_WIDTH;
+                int col = stripX / tilePixelSize;
+                int tileRow = (y - MAP_RENDER_TOP) / tilePixelSize;
+                int tile = extrasReady ? g_wideExtraTiles[tileRow][col] : -1;
+                row[x] = tile >= 0 ? tiles[tileRow][col][((y - MAP_RENDER_TOP) % tilePixelSize) * tilePixelSize +
+                                                         stripX % tilePixelSize]
+                                   : black;
+            }
         }
     }
 }

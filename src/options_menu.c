@@ -267,6 +267,8 @@ static void ChangeItem(OptionItem* item, int direction)
 
 static bool s_menuOpen;
 
+extern bool g_presentFullScreenPage;
+
 // Wait for a key without the game's own key wait (ULTIMA_266c_GetChar), which
 // updates the game frame while idle and would redraw the map over the menu.
 static int ReadKey(void)
@@ -286,6 +288,7 @@ void OPTIONS_MENU_Run(void)
     int selected = 0;
 
     s_menuOpen = true;
+    g_presentFullScreenPage = true; // full-screen page: centered in the wide view
 
     ULTIMA_1c22_SetTextWindowSize(0, 0, 0, SCREEN_RIGHT, SCREEN_BOTTOM);
     ULTIMA_1b94_SelectTextWindow(0);
@@ -341,6 +344,7 @@ void OPTIONS_MENU_Run(void)
             OPTIONS_Save();
             ULTIMA_16ba_PrintChar(CTRL_CHAR_CLEAR_WINDOW);
             s_menuOpen = false;
+            g_presentFullScreenPage = false;
             return;
         }
     }

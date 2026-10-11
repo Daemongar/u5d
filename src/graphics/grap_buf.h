@@ -26,6 +26,12 @@
 #define WIDE_EXTRA_COLUMNS 3
 #define WIDE_EXTRA_WIDTH (WIDE_EXTRA_COLUMNS * tilePixelSize)
 #define WIDE_RENDER_WIDTH (hiresWidth + 2 * WIDE_EXTRA_WIDTH)
+#define WIDE_EXTRA_ROWS 11
+
+// Tile shown in each extra square (left strip columns 0-2, right 3-5), or -1
+// for dark; filled by WIDE_UpdateExtraTiles in wide_view.c.
+extern int g_wideExtraTiles[WIDE_EXTRA_ROWS][2 * WIDE_EXTRA_COLUMNS];
+extern bool g_wideExtraTilesReady;
 
 enum
 {
@@ -58,6 +64,7 @@ extern u8* g_linearColorMask0;
 typedef void pfGrapFlushFrame(void);
 
 extern void GRAP_BUF_LoadColorTileAtlas(u32* pixels, int columns, int tileCount);
+extern void GRAP_BUF_RenderTileRGB(int tileIdx, const u32* palette, u32* out);
 extern void GRAP_BUF_SaveScreen(void);
 extern void GRAP_BUF_RestoreScreen(void);
 extern void GRAP_BUF_ClearColorLayer(void);
