@@ -161,6 +161,7 @@ PC-speaker sound effects are recreated in software.
 Gameplay
 
 Armor now reduces combat damage. In DOS it had no effect.
+The Ztats screen shows each character's armor score (the defense combat uses) above Magic.
 Mouse aiming in combat.
 Easier conversations: keywords aren't case-sensitive, long replies page automatically, and keyword hints are shown.
 Smarter monster targeting.

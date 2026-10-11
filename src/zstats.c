@@ -97,7 +97,20 @@ static void ZSTATS_0082(int param_1)
     ULTIMA_1a3e_PrintNumber(local_4->dex, 2, 0x30);
     ULTIMA_1850_PrintString(_TEXT(0x96fa, "  Ex:"));
     ULTIMA_1a3e_PrintNumber(local_4->exp, 4, 0x20);
+#if !defined(TARGET_DOS16)
+    // Armor on the blank line above Magic: the defense combat uses for this
+    // character (see COMBAT_12b0), which is the base 7 plus equipped armor
+    // with ENABLE_BUG_FIX, and only the base 7 in the original.
+    ULTIMA_1850_PrintString("\n    Armor:");
+#if defined(ENABLE_BUG_FIX)
+    ULTIMA_1a3e_PrintNumber(local_4->_18 + ULTIMA_6da8(param_1), 2, 0x20);
+#else
+    ULTIMA_1a3e_PrintNumber(local_4->_18, 2, 0x20);
+#endif
+    ULTIMA_1850_PrintString(_TEXT(0x9700, "\n    Magic:"));
+#else
     ULTIMA_1850_PrintString(_TEXT(0x9700, "\n\n    Magic:"));
+#endif
     ULTIMA_1a3e_PrintNumber(local_4->mag, 2, 0x20);
 }
 
