@@ -19,6 +19,7 @@ static OptionFlag s_flags[] =
     {"display", "keep_aspect", &g_options.keepAspect, false},
     {"display", "color_tiles", &g_options.colorTiles, true},
     {"display", "enhanced_palette", &g_options.enhancedPalette, true},
+    {"display", "wide_view", &g_options.wideView, false},
     {"sound", "music", &g_options.music, true},
     {"sound", "sound_effects", &g_options.soundEffects, true},
     {"sound", "terrain_footsteps", &g_options.terrainFootsteps, true},

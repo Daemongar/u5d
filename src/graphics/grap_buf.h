@@ -16,6 +16,37 @@
 #define renderWidth (loresWidth * loresToHiresRatio)
 #define renderHeight (loresHeight * loresToHiresRatio)
 #define tilePixelSize 32
+
+// Wide view layout (see ComposeFrame in grap_sdl.c), in 640x400 render pixels.
+// The original map occupies x 16..367; 3 extra tile columns go on each side.
+#define MAP_RENDER_LEFT 16
+#define MAP_RENDER_RIGHT 368
+#define MAP_RENDER_TOP 16
+#define MAP_RENDER_BOTTOM 368
+#define WIDE_EXTRA_COLUMNS 3
+#define WIDE_EXTRA_WIDTH (WIDE_EXTRA_COLUMNS * tilePixelSize)
+#define WIDE_RENDER_WIDTH (hiresWidth + 2 * WIDE_EXTRA_WIDTH)
+
+enum
+{
+    PRESENT_LAYOUT_NORMAL,   // the game's 640x400 screen as is
+    PRESENT_LAYOUT_CENTERED, // wide view, non-map screen: centered
+    PRESENT_LAYOUT_WIDE_MAP, // wide view, map screen: map widened, panel on the right
+};
+
+// Game x for a wide-map-layout x, or -1 inside the extra strips beside the map.
+static inline int WideToGameX(int x)
+{
+    if (x < MAP_RENDER_LEFT)
+        return x;
+    if (x < MAP_RENDER_LEFT + WIDE_EXTRA_WIDTH)
+        return -1;
+    if (x < MAP_RENDER_RIGHT + WIDE_EXTRA_WIDTH)
+        return x - WIDE_EXTRA_WIDTH;
+    if (x < MAP_RENDER_RIGHT + 2 * WIDE_EXTRA_WIDTH)
+        return -1;
+    return x - 2 * WIDE_EXTRA_WIDTH;
+}
 #define tileSourcePixelSize (tilePixelSize / loresToHiresRatio)
 
 extern u8* g_linearEgaBuffer0;

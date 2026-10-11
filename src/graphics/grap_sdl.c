@@ -22,8 +22,16 @@ static int s_colorTileCount;
 int windowWidth = 1280;
 int windowHeight = 960;
 
-// Where the 640x400 picture is drawn in the window (for mouse mapping).
+// Where the picture is drawn in the window, and how it is laid out (for
+// mouse mapping in key_sdl.c).
 SDL_FRect g_presentRect = {0, 0, 1280, 960};
+int g_presentWidth = hiresWidth; // width of the composed picture
+int g_presentLayout = PRESENT_LAYOUT_NORMAL;
+
+// The game's own 640x400 picture, before it is laid out for the window.
+static Uint32* s_frame;
+
+extern u8 D_5893_map_id;
 
 static Uint32 s_egaPaletteOriginal[16] =
 {
@@ -207,7 +215,9 @@ void GRAP_SDL_Initialize(void)
     // bordered modes differs from the requested width/height.
     SDL_GetWindowSizeInPixels(s_sdlWindow, &windowWidth, &windowHeight);
 
-    s_sdlSurface = SDL_CreateSurface(hiresWidth, hiresHeight, SDL_GetPixelFormatForMasks(32, 0xff0000, 0xff00, 0xff, 0xff000000));
+    // Wide enough for the wide view; normal frames use the left 640 columns.
+    s_sdlSurface = SDL_CreateSurface(WIDE_RENDER_WIDTH, hiresHeight, SDL_GetPixelFormatForMasks(32, 0xff0000, 0xff00, 0xff, 0xff000000));
+    s_frame = malloc(sizeof(Uint32) * hiresWidth * hiresHeight);
 
     s_sdlTexture = SDL_CreateTextureFromSurface(s_sdlRenderer, s_sdlSurface);
     SDL_SetTextureScaleMode(s_sdlTexture, SDL_SCALEMODE_LINEAR);
@@ -217,7 +227,7 @@ void GRAP_SDL_Initialize(void)
         exit(0);
     }
 
-    if (s_sdlSurface->pitch != hiresWidth * 4)
+    if (s_sdlSurface->pitch != WIDE_RENDER_WIDTH * 4 || s_frame == NULL)
     {
         exit(0);
     }
@@ -235,6 +245,8 @@ void GRAP_SDL_Cleanup(void)
     s_colorTileColumns = 0;
     s_colorTileCount = 0;
 
+    free(s_frame);
+    s_frame = NULL;
     SDL_DestroyTexture(s_sdlTexture);
     SDL_DestroySurface(s_sdlSurface);
     SDL_DestroyRenderer(s_sdlRenderer);
@@ -248,8 +260,8 @@ void GRAP_SDL_Cleanup(void)
 
 static void LinearToRGB(void)
 {
-    Uint32* pixels = s_sdlSurface->pixels;
-    int pitch = s_sdlSurface->pitch / 4;
+    Uint32* pixels = s_frame;
+    int pitch = hiresWidth;
     const Uint32* s_egaPalette = CurrentPalette();
 
     for (int y = 0; y < renderHeight; y++)
@@ -282,11 +294,73 @@ static void LinearToRGB(void)
 #endif
 }
 
+// Wide view: the game still draws its 640x400 screen. Map screens are laid out
+// wider, with the map moved right by WIDE_EXTRA_WIDTH and the stats panel moved
+// to the right edge; the strips beside the map are WIDE_EXTRA_WIDTH each
+// (black for now, with the frame's top and bottom borders carried across).
+// Other screens (title, intro) are centered.
+static bool IsMapScreen(void)
+{
+    return D_5893_map_id != 0x40 && D_5893_map_id != 0x41;
+}
+
+static void ComposeFrame(void)
+{
+    Uint32* out = s_sdlSurface->pixels;
+    int pitch = s_sdlSurface->pitch / 4;
+    Uint32 black = CurrentPalette()[0];
+
+    if (!g_options.wideView)
+    {
+        g_presentWidth = hiresWidth;
+        g_presentLayout = PRESENT_LAYOUT_NORMAL;
+        for (int y = 0; y < hiresHeight; y++)
+            memcpy(&out[y * pitch], &s_frame[y * hiresWidth], sizeof(Uint32) * hiresWidth);
+        return;
+    }
+
+    g_presentWidth = WIDE_RENDER_WIDTH;
+
+    if (!IsMapScreen())
+    {
+        g_presentLayout = PRESENT_LAYOUT_CENTERED;
+        int margin = (WIDE_RENDER_WIDTH - hiresWidth) / 2;
+        for (int y = 0; y < hiresHeight; y++)
+        {
+            Uint32* row = &out[y * pitch];
+            for (int x = 0; x < margin; x++)
+                row[x] = row[WIDE_RENDER_WIDTH - 1 - x] = black;
+            memcpy(&row[margin], &s_frame[y * hiresWidth], sizeof(Uint32) * hiresWidth);
+        }
+        return;
+    }
+
+    g_presentLayout = PRESENT_LAYOUT_WIDE_MAP;
+    for (int y = 0; y < hiresHeight; y++)
+    {
+        Uint32* row = &out[y * pitch];
+        const Uint32* src = &s_frame[y * hiresWidth];
+        bool borderRow = y < MAP_RENDER_TOP || y >= MAP_RENDER_BOTTOM;
+
+        for (int x = 0; x < WIDE_RENDER_WIDTH; x++)
+        {
+            int srcX = WideToGameX(x);
+            if (srcX >= 0)
+                row[x] = src[srcX];
+            else if (borderRow)
+                row[x] = src[MAP_RENDER_LEFT + (x % 16)]; // carry the frame border across
+            else
+                row[x] = black;
+        }
+    }
+}
+
 extern void DisplayDebugMessages(void);
 
 void GRAP_SDL_FlushFrame(void)
 {
     LinearToRGB();
+    ComposeFrame();
 
     SDL_UpdateTexture(s_sdlTexture, NULL, s_sdlSurface->pixels, s_sdlSurface->pitch);
 
@@ -294,19 +368,21 @@ void GRAP_SDL_FlushFrame(void)
     // each frame so the picture always fills the window instead of clipping.
     SDL_GetWindowSizeInPixels(s_sdlWindow, &windowWidth, &windowHeight);
 
-    SDL_FRect srcRect = {0, 0, hiresWidth, hiresHeight};
+    SDL_FRect srcRect = {0, 0, (float)g_presentWidth, hiresHeight};
     SDL_FRect dstRect = {0, 0, windowWidth, windowHeight};
 
     if (g_options.keepAspect)
     {
-        // Largest 4:3 area that fits (the original 320x200 was shown on 4:3
-        // monitors), centered with black bars.
+        // Keep the picture's shape, centered with black bars: 4:3 for the
+        // original screen (shown on 4:3 monitors, so 200 lines display as
+        // 240), and the same pixel shape for the wide view (about 16:9).
+        float aspect = (g_presentWidth / 2.0f) / 240.0f;
         float w = (float)windowWidth;
         float h = (float)windowHeight;
-        if (w * 3.0f > h * 4.0f)
-            w = h * 4.0f / 3.0f;
+        if (w > h * aspect)
+            w = h * aspect;
         else
-            h = w * 3.0f / 4.0f;
+            h = w / aspect;
         dstRect = (SDL_FRect){(windowWidth - w) / 2.0f, (windowHeight - h) / 2.0f, w, h};
     }
 

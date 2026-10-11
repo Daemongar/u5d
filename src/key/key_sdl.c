@@ -123,6 +123,8 @@ extern bool COMSUBS_AimClick(int tileX, int tileY);
 extern bool COMSUBS_AimCancel(void);
 
 extern SDL_FRect g_presentRect;
+extern int g_presentWidth;
+extern int g_presentLayout;
 
 // The combat map viewport is an 11x11 grid of 32px tiles in the 640x400 render.
 #define COMBAT_MAP_TILE_PX tilePixelSize
@@ -133,9 +135,17 @@ static bool MousePosToTile(float mx, float my, int* outTileX, int* outTileY)
     if (g_presentRect.w <= 0 || g_presentRect.h <= 0)
         return false;
 
-    int renderX = (int)((mx - g_presentRect.x) * renderWidth / g_presentRect.w);
+    int renderX = (int)((mx - g_presentRect.x) * g_presentWidth / g_presentRect.w);
     int renderY = (int)((my - g_presentRect.y) * renderHeight / g_presentRect.h);
     if (renderX < 0 || renderY < 0)
+        return false;
+
+    // Back to the game's own 640x400 coordinates.
+    if (g_presentLayout == PRESENT_LAYOUT_WIDE_MAP)
+        renderX = WideToGameX(renderX);
+    else if (g_presentLayout == PRESENT_LAYOUT_CENTERED)
+        renderX -= WIDE_EXTRA_WIDTH;
+    if (renderX < 0)
         return false;
 
     int tileX = renderX / COMBAT_MAP_TILE_PX;
