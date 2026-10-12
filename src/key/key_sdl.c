@@ -103,11 +103,20 @@ static u16 KeyboardEventToUltimaKeycode(SDL_KeyboardEvent ev)
 // F1 opens the Options screen the next time the game waits for a key.
 static bool s_optionsRequested;
 
+extern void GRAP_SDL_ReloadColorTiles(void);
+
 void KEY_SDL_ProcessKeyDown(SDL_KeyboardEvent ev)
 {
     if (ev.key == SDLK_F1)
     {
         s_optionsRequested = true;
+        return;
+    }
+
+    // F8 reloads TILES.BMP, for trying out changes to the tile sheet.
+    if (ev.key == SDLK_F8)
+    {
+        GRAP_SDL_ReloadColorTiles();
         return;
     }
 

@@ -31,6 +31,9 @@
 // Tile shown in each extra square (left strip columns 0-2, right 3-5), or -1
 // for dark; filled by WIDE_UpdateExtraTiles in wide_view.c.
 extern int g_wideExtraTiles[WIDE_EXTRA_ROWS][2 * WIDE_EXTRA_COLUMNS];
+// Terrain under a creature in an extra square, drawn first so the creature's
+// see-through pixels show it; -1 if none.
+extern int g_wideExtraUnder[WIDE_EXTRA_ROWS][2 * WIDE_EXTRA_COLUMNS];
 extern bool g_wideExtraTilesReady;
 
 enum
@@ -74,6 +77,8 @@ typedef void pfGrapFlushFrame(void);
 
 extern void GRAP_BUF_LoadColorTileAtlas(u32* pixels, int columns, int tileCount, int tileSize);
 extern void GRAP_BUF_RenderTileRGB(int tileIdx, const u32* palette, u32* out);
+extern void GRAP_BUF_RenderTileRGBOver(int tileIdx, const u32* palette, u32* out);
+extern bool GRAP_BUF_TileHasClearPixels(int tileIdx);
 extern void GRAP_BUF_SaveScreen(void);
 extern void GRAP_BUF_RestoreScreen(void);
 extern void GRAP_BUF_ClearColorLayer(void);

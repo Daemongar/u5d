@@ -30,6 +30,7 @@
 // town map's edge the stand-in tile is shown, as in the game's own view.
 
 int g_wideExtraTiles[WIDE_EXTRA_ROWS][2 * WIDE_EXTRA_COLUMNS];
+int g_wideExtraUnder[WIDE_EXTRA_ROWS][2 * WIDE_EXTRA_COLUMNS];
 bool g_wideExtraTilesReady; // false until the map has been drawn once
 
 #define DAYLIGHT 0x32
@@ -125,10 +126,11 @@ static bool InLineOfSight(int dx, int dy)
     return true;
 }
 
-static int ExtraTile(int dx, int dy)
+static int ExtraTile(int dx, int dy, int* under)
 {
     int light = D_58a5;
 
+    *under = -1;
     if (light < DAYLIGHT && dx * dx + dy * dy > light)
         return -1;
     if (!InLineOfSight(dx, dy))
@@ -149,6 +151,7 @@ static int ExtraTile(int dx, int dy)
         if (actor->_0_tile != 0 && actor->_1_animTile != 0 && actor->_4_z == D_5895_map_level &&
             actor->_2_x == (byte)(D_5896_map_x + dx) && actor->_3_y == (byte)(D_5897_map_y + dy))
         {
+            *under = D_b11e[tile];
             return 0x100 + actor->_1_animTile;
         }
     }
@@ -169,10 +172,30 @@ void WIDE_UpdateExtraTiles(void)
             // Left strip: 8..6 squares left of the party; right strip: 6..8 right.
             int dx = col < WIDE_EXTRA_COLUMNS ? col - (WIDE_EXTRA_COLUMNS + 5)
                                               : col - WIDE_EXTRA_COLUMNS + 6;
-            g_wideExtraTiles[row][col] = active ? ExtraTile(dx, dy) : -1;
+            g_wideExtraUnder[row][col] = -1;
+            g_wideExtraTiles[row][col] = active ? ExtraTile(dx, dy, &g_wideExtraUnder[row][col]) : -1;
         }
     }
     g_wideExtraTilesReady = true;
+}
+
+// Transparent creature tiles: ULTIMA_56ac_DrawMap replaces the terrain in a
+// creature's square with the creature, so its tile carries its own background.
+// When the full-color tile has see-through pixels, draw the terrain there
+// first: from the battlefield in combat, otherwise from the map.
+void WIDE_PutTerrainUnderActor(int x, int y, int actorTile)
+{
+    if (!GRAP_BUF_TileHasClearPixels(0x100 + actorTile))
+        return;
+
+    int tile;
+    if (D_5893_map_id >= 0x80)
+        tile = GetCombatMap(x, y);
+    else
+        tile = TileAt(x - 5, y - 5);
+
+    if (tile >= 0)
+        ULTIMA_10e0_GRAP_51_PutTile(D_b11e[tile], x, y);
 }
 
 #endif

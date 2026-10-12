@@ -115,6 +115,15 @@ the text, stats panel and borders pixel-doubled. With 32x32 tiles everything is
 drawn at 640x400. A `TILES.BMP` in the game folder takes priority over the one
 installed with the game, so remove an older copy from there to use the new one.
 
+Pure magenta pixels (255, 0, 255), or fully clear pixels in a 32-bit BMP with
+alpha, are see-through: when a creature or object tile has any, the terrain
+under it is drawn first and shows through. `tools/upscale_tiles.py --transparent`
+makes a starting point by turning the black background of creature and object
+tiles magenta; touch up any tile where black belongs to the picture.
+
+Press **F8** during play to reload `TILES.BMP` after editing it; the map shows
+the new tiles the next time it is drawn.
+
 The full-color atlas is optional and the original 16-color tiles remain the
 default. No additional image libraries are needed. The legacy DOS graphics
 drivers do not load this SDL-specific atlas.

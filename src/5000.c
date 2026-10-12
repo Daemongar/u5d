@@ -294,6 +294,9 @@ void ULTIMA_56ac_DrawMap(void)
             {
                 if (GetActorMap(local_6, local_8) != 0x16)
                 {
+#if defined(TARGET_SDL)
+                    WIDE_PutTerrainUnderActor(local_6, local_8, GetActorMap(local_6, local_8));
+#endif
                     // draw actor
                     ULTIMA_10e0_GRAP_51_PutTile(0x100 + GetActorMap(local_6, local_8), local_6, local_8);
                 }

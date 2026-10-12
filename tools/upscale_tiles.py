@@ -11,10 +11,16 @@ The output is a 24-bit BMP, 32 tiles across, which the SDL builds load from
 the game data directory.
 
 Usage: tools/upscale_tiles.py <path/to/TILES.16> <output TILES.BMP>
-                              [--scale 2|4] [--header src/graphics/tile_colors.h]
+                              [--scale 2|4] [--transparent]
+                              [--header src/graphics/tile_colors.h]
 
 --scale 4 applies Scale2x twice for 64x64 tiles (2048x1024); the default 2
-gives the 32x32 tiles the game draws today.
+gives 32x32 tiles.
+
+--transparent makes the black background of creature and object tiles
+(256-511) see-through (magenta), so the game draws them over the terrain:
+black connected to the tile's edge, not black inside the figure. Tiles whose
+black is part of the picture (TRANSPARENT_EXCLUDE) are left as they are.
 
 With --header it also writes the palette the game uses to render animated
 tiles, so they match the atlas. Requires Pillow and NumPy.
@@ -135,7 +141,29 @@ def scale2x(img):
     return out
 
 
-def render_tile(idx16, scale=SCALE):
+# Creature/object tiles whose black background belongs to the picture: stars,
+# the magic circle and ladders, people in chairs and beds, stocks and
+# shackles, and tiles drawn over grass.
+TRANSPARENT_EXCLUDE = {0x100, *range(0x116, 0x119), *range(0x130, 0x140), *range(0x160, 0x168),
+                       *range(0x1e0, 0x1e4), *range(0x1f4, 0x1fc)}
+CLEAR = np.array([255, 0, 255], dtype=np.uint8)
+
+
+def edge_black(idx):
+    """Pixels of color 0 connected (4-way) to the tile's edge."""
+    n = idx.shape[0]
+    black = idx == 0
+    mask = np.zeros_like(black)
+    stack = [(y, x) for y in range(n) for x in (0, n - 1)] + [(y, x) for x in range(n) for y in (0, n - 1)]
+    while stack:
+        y, x = stack.pop()
+        if 0 <= y < n and 0 <= x < n and black[y, x] and not mask[y, x]:
+            mask[y, x] = True
+            stack += [(y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)]
+    return mask
+
+
+def render_tile(idx16, scale=SCALE, transparent=False):
     idx = idx16
     while idx.shape[0] < TILE * scale:
         idx = scale2x(idx)
@@ -154,7 +182,10 @@ def render_tile(idx16, scale=SCALE):
     shade[bottom] *= 0.86
     rgb *= shade[:, :, None]
 
-    return np.clip(rgb, 0, 255).astype(np.uint8)
+    out = np.clip(rgb, 0, 255).astype(np.uint8)
+    if transparent:
+        out[edge_black(idx)] = CLEAR
+    return out
 
 
 def write_header(path):
@@ -171,6 +202,9 @@ def main():
     args = sys.argv[1:]
     header = None
     scale = SCALE
+    transparent = '--transparent' in args
+    if transparent:
+        args.remove('--transparent')
     if '--header' in args:
         i = args.index('--header')
         header = args[i + 1]
@@ -193,7 +227,7 @@ def main():
 
     for i, tile in enumerate(tiles):
         r, c = divmod(i, COLUMNS)
-        atlas[r * size:(r + 1) * size, c * size:(c + 1) * size] = render_tile(tile, scale)
+        atlas[r * size:(r + 1) * size, c * size:(c + 1) * size] = render_tile(tile, scale, transparent and i >= 0x100 and i not in TRANSPARENT_EXCLUDE)
 
     Image.fromarray(atlas, 'RGB').save(args[1], format='BMP')
     print(f"Wrote {len(tiles)} tiles ({atlas.shape[1]}x{atlas.shape[0]}) to {args[1]}")

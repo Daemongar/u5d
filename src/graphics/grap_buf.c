@@ -35,6 +35,7 @@ static u8* s_colorMask[2];
 static u32* s_colorTileAtlas;
 static int s_colorTileColumns;
 static int s_colorTileCount;
+static bool* s_colorTileClear; // per atlas tile: has see-through pixels
 int g_colorScale = 1;
 
 // The color layer buffers are allocated for the largest scale.
@@ -594,7 +595,7 @@ static void DynRenderTile(int tileIdx, const byte* data, u32* out)
                 int iv = v < 0 ? 0 : (v > 255 ? 255 : (int)v);
                 px |= (u32)iv << (16 - 8 * k);
             }
-            out[y * n + x] = px;
+            out[y * n + x] = 0xff000000 | px;
         }
     }
 }
@@ -764,6 +765,32 @@ void GRAP_BUF_LoadColorTileAtlas(u32* pixels, int columns, int tileCount, int ti
     s_colorTileColumns = columns;
     s_colorTileCount = tileCount;
     s_dirty = true;
+
+    free(s_colorTileClear);
+    s_colorTileClear = pixels != NULL ? calloc(tileCount, sizeof(*s_colorTileClear)) : NULL;
+    if (s_colorTileClear != NULL)
+    {
+        int stride = columns * tileSize;
+        for (int i = 0; i < tileCount; i++)
+        {
+            const u32* tile = &pixels[(i / columns) * tileSize * stride + (i % columns) * tileSize];
+            for (int y = 0; y < tileSize && !s_colorTileClear[i]; y++)
+                for (int x = 0; x < tileSize; x++)
+                    if ((tile[y * stride + x] >> 24) == 0)
+                    {
+                        s_colorTileClear[i] = true;
+                        break;
+                    }
+        }
+    }
+}
+
+// True if the full-color tile has see-through pixels, so whatever is drawn
+// in its square first (the terrain under a creature) shows through them.
+bool GRAP_BUF_TileHasClearPixels(int tileIdx)
+{
+    return s_colorTileClear != NULL && s_colorTileAtlas != NULL && tileIdx >= 0 && tileIdx < s_colorTileCount &&
+           s_colorTileClear[tileIdx];
 }
 
 void GRAP_BUF_UnloadTileset(void)
@@ -792,7 +819,7 @@ void GRAP_BUF_UpdateTimeTileset(int mode, byte hour, byte minute)
 // own screen (the wide view's extra columns): the full-color atlas when loaded
 // (animated like GRAP_BUF_PutTile), otherwise the 16-color tile doubled with
 // the given palette (the color scale is then 1).
-void GRAP_BUF_RenderTileRGB(int tileIdx, const u32* palette, u32* out)
+static void RenderTileRGB(int tileIdx, const u32* palette, u32* out, bool over)
 {
     if (s_colorTileAtlas != NULL && tileIdx >= 0 && tileIdx < s_colorTileCount)
     {
@@ -811,7 +838,10 @@ void GRAP_BUF_RenderTileRGB(int tileIdx, const u32* palette, u32* out)
         {
             const u32* row = &source[((y - scroll + size) % size) * stride];
             for (int x = 0; x < size; x++)
-                out[y * size + x] = 0xff000000 | row[x];
+            {
+                if (!over || (row[x] >> 24) != 0)
+                    out[y * size + x] = 0xff000000 | row[x];
+            }
         }
         return;
     }
@@ -833,6 +863,17 @@ void GRAP_BUF_RenderTileRGB(int tileIdx, const u32* palette, u32* out)
             out[y * tilePixelSize + x] = palette[(sx & 1) ? (packed & 0x0f) : (packed >> 4)];
         }
     }
+}
+
+void GRAP_BUF_RenderTileRGB(int tileIdx, const u32* palette, u32* out)
+{
+    RenderTileRGB(tileIdx, palette, out, false);
+}
+
+// The same, drawn over what out already holds: see-through pixels are skipped.
+void GRAP_BUF_RenderTileRGBOver(int tileIdx, const u32* palette, u32* out)
+{
+    RenderTileRGB(tileIdx, palette, out, true);
 }
 
 void GRAP_BUF_PutTile(int tileX, int tileY, int tileIdx, int xOffset, int yOffset)
@@ -870,10 +911,13 @@ void GRAP_BUF_PutTile(int tileX, int tileY, int tileIdx, int xOffset, int yOffse
                 int dst = outY * colorWidth + outX;
 #if defined(ENABLE_ANIMATED_COLOR_TILES)
                 int srcRow = (y - scroll + size) % size;
-                colorPixels[dst] = source[srcRow * stride + x];
+                u32 pixel = source[srcRow * stride + x];
 #else
-                colorPixels[dst] = s_colorTileAtlas[(srcY + y) * atlasWidth + srcX + x];
+                u32 pixel = s_colorTileAtlas[(srcY + y) * atlasWidth + srcX + x];
 #endif
+                if ((pixel >> 24) == 0)
+                    continue; // see-through: keep what is already there
+                colorPixels[dst] = pixel;
                 colorMask[dst] = 1;
             }
         }

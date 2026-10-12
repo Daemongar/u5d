@@ -145,12 +145,16 @@ static void LoadColorTileAtlas(void)
         return;
     }
 
+    // See-through pixels (magenta, or mostly clear in a BMP with alpha) are
+    // stored as 0; all others as opaque colors.
     for (int y = 0; y < converted->h; y++)
     {
         const Uint32* src = (const Uint32*)((const Uint8*)converted->pixels + y * converted->pitch);
         for (int x = 0; x < converted->w; x++)
         {
-            s_colorTileAtlas[y * converted->w + x] = src[x] & 0x00ffffff;
+            Uint32 rgb = src[x] & 0x00ffffff;
+            bool clear = (src[x] >> 24) < 0x80 || rgb == 0xff00ff;
+            s_colorTileAtlas[y * converted->w + x] = clear ? 0 : 0xff000000 | rgb;
         }
     }
 
@@ -160,6 +164,20 @@ static void LoadColorTileAtlas(void)
         GRAP_BUF_LoadColorTileAtlas(s_colorTileAtlas, s_colorTileColumns, s_colorTileCount, s_colorTileSize);
     }
     fprintf(stderr, "Loaded %d full-color %dx%d tiles from %s\n", s_colorTileCount, tileSize, tileSize, path);
+}
+
+// F8: read TILES.BMP again, so changes to the tile sheet show without
+// restarting. The map picks up the new tiles the next time it is drawn.
+void GRAP_SDL_ReloadColorTiles(void)
+{
+    GRAP_BUF_LoadColorTileAtlas(NULL, 0, 0, 0);
+    free(s_colorTileAtlas);
+    s_colorTileAtlas = NULL;
+    s_colorTileColumns = 0;
+    s_colorTileCount = 0;
+    s_colorTileSize = 0;
+
+    LoadColorTileAtlas();
 }
 
 // Shrink a windowed size (keeping its shape) so it fits on the primary display.
@@ -372,7 +390,17 @@ static void ComposeFrame(void)
     for (int row = 0; extrasReady && row < WIDE_EXTRA_ROWS; row++)
         for (int col = 0; col < 2 * WIDE_EXTRA_COLUMNS; col++)
             if (g_wideExtraTiles[row][col] >= 0)
-                GRAP_BUF_RenderTileRGB(g_wideExtraTiles[row][col], CurrentPalette(), tiles[row][col]);
+            {
+                if (g_wideExtraUnder[row][col] >= 0 && GRAP_BUF_TileHasClearPixels(g_wideExtraTiles[row][col]))
+                {
+                    GRAP_BUF_RenderTileRGB(g_wideExtraUnder[row][col], CurrentPalette(), tiles[row][col]);
+                    GRAP_BUF_RenderTileRGBOver(g_wideExtraTiles[row][col], CurrentPalette(), tiles[row][col]);
+                }
+                else
+                {
+                    GRAP_BUF_RenderTileRGB(g_wideExtraTiles[row][col], CurrentPalette(), tiles[row][col]);
+                }
+            }
 
     for (int y = 0; y < frameHeight; y++)
     {
