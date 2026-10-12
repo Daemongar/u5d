@@ -35,6 +35,10 @@ static u8* s_colorMask[2];
 static u32* s_colorTileAtlas;
 static int s_colorTileColumns;
 static int s_colorTileCount;
+int g_colorScale = 1;
+
+// The color layer buffers are allocated for the largest scale.
+#define COLOR_LAYER_PIXELS ((size_t)renderWidth * renderHeight * maxColorScale * maxColorScale)
 
 #if defined(ENABLE_GRAP_OVERLAY)
 // 256k
@@ -74,8 +78,8 @@ void GRAP_BUF_Initialize(pfGrapFlushFrame* pfFlushFrame)
 
     for (int page = 0; page < 2; page++)
     {
-        s_colorPixels[page] = calloc(renderWidth * renderHeight, sizeof(*s_colorPixels[page]));
-        s_colorMask[page] = calloc(renderWidth * renderHeight, sizeof(*s_colorMask[page]));
+        s_colorPixels[page] = calloc(COLOR_LAYER_PIXELS, sizeof(*s_colorPixels[page]));
+        s_colorMask[page] = calloc(COLOR_LAYER_PIXELS, sizeof(*s_colorMask[page]));
     }
     g_linearColorPixels0 = s_colorPixels[0];
     g_linearColorMask0 = s_colorMask[0];
@@ -154,15 +158,17 @@ static inline u8* GetColorMask(int page)
     return page == 0 || page == 1 ? s_colorMask[page] : NULL;
 }
 
+// x, y, width and height in render pixels.
 static inline void ClearColorMaskRect(int page, int x, int y, int width, int height)
 {
     u8* mask = GetColorMask(page);
     if (mask == NULL)
         return;
 
-    for (int row = 0; row < height; row++)
+    int scale = g_colorScale;
+    for (int row = 0; row < height * scale; row++)
     {
-        memset(&mask[(y + row) * renderWidth + x], 0, width);
+        memset(&mask[(y * scale + row) * colorWidth + x * scale], 0, width * scale);
     }
 }
 
@@ -387,6 +393,35 @@ void GRAP_BUF_PrintChar(byte* ptr, int offset, byte fgColor, byte bgColor, int p
     s_dirty = true;
 }
 
+// The same scroll on the color layer, in render pixels.
+static void ScrollColorLayer(int x, int width, int y1, int y2, int dy, bool up)
+{
+    int scale = g_colorScale;
+    x *= scale;
+    width *= scale;
+    y1 *= scale;
+    y2 = (y2 + 1) * scale - 1;
+    dy *= scale;
+
+    for (int i = 0; i <= y2 - y1; i++)
+    {
+        int y = up ? y1 + i : y2 - i;
+        int from = up ? y + dy : y - dy;
+        size_t dst = (size_t)y * colorWidth + x;
+        if (from >= y1 && from <= y2)
+        {
+            size_t src = (size_t)from * colorWidth + x;
+            memmove(&s_colorPixels[0][dst], &s_colorPixels[0][src], width * sizeof(u32));
+            memmove(&s_colorMask[0][dst], &s_colorMask[0][src], width);
+        }
+        else
+        {
+            memset(&s_colorPixels[0][dst], 0, width * sizeof(u32));
+            memset(&s_colorMask[0][dst], 0, width);
+        }
+    }
+}
+
 // 0x27
 void GRAP_BUF_ScrollWindow(int left, int top, int right, int bottom, int amount)
 {
@@ -396,20 +431,18 @@ void GRAP_BUF_ScrollWindow(int left, int top, int right, int bottom, int amount)
     int y2 = (bottom + 1) * loresToHiresRatio - 1;
     int dy = abs(amount) * loresToHiresRatio;
 
+    ScrollColorLayer(x, width, y1, y2, dy, amount < 0);
+
     if (amount < 0)
     {
         for (int y = y1; y <= y2 - dy; y++)
         {
             memcpy(&g_linearEgaBuffer0[y * renderWidth + x], &g_linearEgaBuffer0[(y + dy) * renderWidth + x], width);
-            memmove(&s_colorPixels[0][y * renderWidth + x], &s_colorPixels[0][(y + dy) * renderWidth + x], width * sizeof(u32));
-            memmove(&s_colorMask[0][y * renderWidth + x], &s_colorMask[0][(y + dy) * renderWidth + x], width);
         }
 
         for (int y = y2 - dy + 1; y <= y2; y++)
         {
             memset(&g_linearEgaBuffer0[y * renderWidth + x], 0, width);
-            memset(&s_colorPixels[0][y * renderWidth + x], 0, width * sizeof(u32));
-            memset(&s_colorMask[0][y * renderWidth + x], 0, width);
         }
     }
     else
@@ -417,15 +450,11 @@ void GRAP_BUF_ScrollWindow(int left, int top, int right, int bottom, int amount)
         for (int y = y2; y >= y1 + dy; y--)
         {
             memcpy(&g_linearEgaBuffer0[y * renderWidth + x], &g_linearEgaBuffer0[(y - dy) * renderWidth + x], width);
-            memmove(&s_colorPixels[0][y * renderWidth + x], &s_colorPixels[0][(y - dy) * renderWidth + x], width * sizeof(u32));
-            memmove(&s_colorMask[0][y * renderWidth + x], &s_colorMask[0][(y - dy) * renderWidth + x], width);
         }
 
         for (int y = y1; y < y1 + dy; y++)
         {
             memset(&g_linearEgaBuffer0[y * renderWidth + x], 0, width);
-            memset(&s_colorPixels[0][y * renderWidth + x], 0, width * sizeof(u32));
-            memset(&s_colorMask[0][y * renderWidth + x], 0, width);
         }
     }
 
@@ -488,53 +517,75 @@ static u32 s_tileAnimFrame;
 static byte s_dynSource[COLOR_TILE_COUNT][TILE_BYTES];
 static bool s_dynValid[COLOR_TILE_COUNT];
 
-static void DynDecodeScale2x(const byte* data, byte src[16][16], byte idx[32][32])
+#define DYN_MAX_SIZE (tilePixelSize * maxColorScale)
+
+// Scale2x on an n x n index image, clamped at the tile edges.
+static void DynScale2x(const byte* src, int n, byte* dst)
 {
-    for (int y = 0; y < 16; y++)
+    for (int y = 0; y < n; y++)
     {
-        for (int x = 0; x < 16; x += 2)
+        for (int x = 0; x < n; x++)
         {
-            src[y][x] = data[y * 8 + x / 2] >> 4;
-            src[y][x + 1] = data[y * 8 + x / 2] & 0x0f;
-        }
-    }
+            byte c = src[y * n + x];
+            byte a = src[(y > 0 ? y - 1 : y) * n + x];
+            byte d = src[(y < n - 1 ? y + 1 : y) * n + x];
+            byte l = src[y * n + (x > 0 ? x - 1 : x)];
+            byte r = src[y * n + (x < n - 1 ? x + 1 : x)];
+            byte* out = &dst[y * 2 * n * 2 + x * 2];
 
-    // Scale2x, clamped at the tile edges.
-    for (int y = 0; y < 16; y++)
-    {
-        for (int x = 0; x < 16; x++)
-        {
-            byte c = src[y][x];
-            byte a = src[y > 0 ? y - 1 : y][x];
-            byte d = src[y < 15 ? y + 1 : y][x];
-            byte l = src[y][x > 0 ? x - 1 : x];
-            byte r = src[y][x < 15 ? x + 1 : x];
-
-            idx[y * 2][x * 2] = (l == a && l != d && a != r) ? a : c;
-            idx[y * 2][x * 2 + 1] = (a == r && a != l && r != d) ? r : c;
-            idx[y * 2 + 1][x * 2] = (d == l && d != r && l != a) ? l : c;
-            idx[y * 2 + 1][x * 2 + 1] = (r == d && r != a && d != l) ? d : c;
+            out[0] = (l == a && l != d && a != r) ? a : c;
+            out[1] = (a == r && a != l && r != d) ? r : c;
+            out[n * 2] = (d == l && d != r && l != a) ? l : c;
+            out[n * 2 + 1] = (r == d && r != a && d != l) ? d : c;
         }
     }
 }
 
+// Renders a tile at colorTileSize, as tools/upscale_tiles.py does with
+// --scale 2 (32x32) or --scale 4 (64x64).
 static void DynRenderTile(int tileIdx, const byte* data, u32* out)
 {
-    byte src[16][16];
-    byte idx[32][32];
+    static byte bufA[DYN_MAX_SIZE * DYN_MAX_SIZE];
+    static byte bufB[DYN_MAX_SIZE * DYN_MAX_SIZE];
+    byte* idx = bufA;
+    int n = 16;
 
     (void)tileIdx;
-    DynDecodeScale2x(data, src, idx);
-
-    for (int y = 0; y < 32; y++)
+    for (int y = 0; y < 16; y++)
     {
-        for (int x = 0; x < 32; x++)
+        for (int x = 0; x < 16; x += 2)
         {
-            byte c = idx[y][x];
+            idx[y * 16 + x] = data[y * 8 + x / 2] >> 4;
+            idx[y * 16 + x + 1] = data[y * 8 + x / 2] & 0x0f;
+        }
+    }
+    while (n < colorTileSize)
+    {
+        byte* next = idx == bufA ? bufB : bufA;
+        DynScale2x(idx, n, next);
+        idx = next;
+        n *= 2;
+    }
+
+    // Lighten the top edge of each shape and darken the bottom edge, in a band
+    // half an original pixel thick.
+    int band = g_colorScale;
+    for (int y = 0; y < n; y++)
+    {
+        for (int x = 0; x < n; x++)
+        {
+            byte c = idx[y * n + x];
             u32 base = g_tilePalette[c];
+            bool top = false;
+            bool bottom = false;
+            for (int k = 1; k <= band; k++)
+            {
+                top |= idx[(y >= k ? y - k : 0) * n + x] != c;
+                bottom |= idx[(y + k < n ? y + k : n - 1) * n + x] != c;
+            }
             float shade = 1.0f;
-            if (y > 0 && idx[y - 1][x] != c) shade *= 1.10f;
-            if (y < 31 && idx[y + 1][x] != c) shade *= 0.86f;
+            if (top) shade *= 1.10f;
+            if (bottom) shade *= 0.86f;
 
             u32 px = 0;
             for (int k = 0; k < 3; k++)
@@ -543,7 +594,7 @@ static void DynRenderTile(int tileIdx, const byte* data, u32* out)
                 int iv = v < 0 ? 0 : (v > 255 ? 255 : (int)v);
                 px |= (u32)iv << (16 - 8 * k);
             }
-            out[y * 32 + x] = px;
+            out[y * n + x] = px;
         }
     }
 }
@@ -554,21 +605,22 @@ static bool IsScrollingTile(int tileIdx)
     return tileIdx == 0x01 || tileIdx == 0x02 || tileIdx == 0x03 || tileIdx == 0x8f;
 }
 
-// Returns the full-color source for a tile: its 32x32 pixels, row stride and
-// a vertical scroll (in rows) to apply when reading.
+// Returns the full-color source for a tile: its colorTileSize pixels square,
+// row stride and a vertical scroll (in rows) to apply when reading.
 static const u32* GetColorTileSource(int tileIdx, int* stride, int* scroll)
 {
+    int size = colorTileSize;
     *scroll = 0;
-    *stride = s_colorTileColumns * tilePixelSize;
-    const u32* atlasTile = &s_colorTileAtlas[(tileIdx / s_colorTileColumns) * tilePixelSize * *stride +
-                                             (tileIdx % s_colorTileColumns) * tilePixelSize];
+    *stride = s_colorTileColumns * size;
+    const u32* atlasTile = &s_colorTileAtlas[(tileIdx / s_colorTileColumns) * size * *stride +
+                                             (tileIdx % s_colorTileColumns) * size];
 
     if (s_tileset == NULL || s_tilesetPristine == NULL || tileIdx >= COLOR_TILE_COUNT)
         return atlasTile;
 
     if (IsScrollingTile(tileIdx))
     {
-        *scroll = (int)((s_tileAnimFrame * loresToHiresRatio) % tilePixelSize);
+        *scroll = (int)((s_tileAnimFrame * loresToHiresRatio * g_colorScale) % size);
         return atlasTile;
     }
 
@@ -578,12 +630,12 @@ static const u32* GetColorTileSource(int tileIdx, int* stride, int* scroll)
 
     if (s_dynCache == NULL)
     {
-        s_dynCache = malloc(COLOR_TILE_COUNT * tilePixelSize * tilePixelSize * sizeof(u32));
+        s_dynCache = malloc(COLOR_TILE_COUNT * DYN_MAX_SIZE * DYN_MAX_SIZE * sizeof(u32));
         if (s_dynCache == NULL)
             return atlasTile;
     }
 
-    u32* cached = &s_dynCache[tileIdx * tilePixelSize * tilePixelSize];
+    u32* cached = &s_dynCache[tileIdx * DYN_MAX_SIZE * DYN_MAX_SIZE];
     if (!s_dynValid[tileIdx] || memcmp(current, s_dynSource[tileIdx], TILE_BYTES) != 0)
     {
         DynRenderTile(tileIdx, current, cached);
@@ -591,7 +643,7 @@ static const u32* GetColorTileSource(int tileIdx, int* stride, int* scroll)
         s_dynValid[tileIdx] = true;
     }
 
-    *stride = tilePixelSize;
+    *stride = size;
     return cached;
 }
 #endif
@@ -646,8 +698,8 @@ void GRAP_BUF_SaveScreen(void)
     SnapshotCopy((void**)&s_snapshot.ega[1], g_linearEgaBuffer1, pixels);
     for (int page = 0; page < 2; page++)
     {
-        SnapshotCopy((void**)&s_snapshot.colorPixels[page], s_colorPixels[page], pixels * sizeof(u32));
-        SnapshotCopy((void**)&s_snapshot.colorMask[page], s_colorMask[page], pixels);
+        SnapshotCopy((void**)&s_snapshot.colorPixels[page], s_colorPixels[page], COLOR_LAYER_PIXELS * sizeof(u32));
+        SnapshotCopy((void**)&s_snapshot.colorMask[page], s_colorMask[page], COLOR_LAYER_PIXELS);
     }
     SnapshotCopy((void**)&s_snapshot.overlay, g_linearOverlayBuffer, (size_t)hiresWidth * hiresHeight);
     s_snapshot.penColor = g_grapPenColor;
@@ -657,12 +709,10 @@ void GRAP_BUF_SaveScreen(void)
 // on top of anything drawn in 16 colors. Put back by GRAP_BUF_RestoreScreen.
 void GRAP_BUF_ClearColorLayer(void)
 {
-    size_t pixels = (size_t)renderWidth * renderHeight;
-
     for (int page = 0; page < 2; page++)
     {
         if (s_colorMask[page] != NULL)
-            memset(s_colorMask[page], 0, pixels);
+            memset(s_colorMask[page], 0, COLOR_LAYER_PIXELS);
     }
     if (g_linearOverlayBuffer != NULL)
         memset(g_linearOverlayBuffer, 0, (size_t)hiresWidth * hiresHeight);
@@ -681,9 +731,9 @@ void GRAP_BUF_RestoreScreen(void)
     for (int page = 0; page < 2; page++)
     {
         if (s_snapshot.colorPixels[page] != NULL && s_colorPixels[page] != NULL)
-            memcpy(s_colorPixels[page], s_snapshot.colorPixels[page], pixels * sizeof(u32));
+            memcpy(s_colorPixels[page], s_snapshot.colorPixels[page], COLOR_LAYER_PIXELS * sizeof(u32));
         if (s_snapshot.colorMask[page] != NULL && s_colorMask[page] != NULL)
-            memcpy(s_colorMask[page], s_snapshot.colorMask[page], pixels);
+            memcpy(s_colorMask[page], s_snapshot.colorMask[page], COLOR_LAYER_PIXELS);
     }
     if (s_snapshot.overlay != NULL && g_linearOverlayBuffer != NULL)
         memcpy(g_linearOverlayBuffer, s_snapshot.overlay, (size_t)hiresWidth * hiresHeight);
@@ -692,11 +742,28 @@ void GRAP_BUF_RestoreScreen(void)
     s_dirty = true;
 }
 
-void GRAP_BUF_LoadColorTileAtlas(u32* pixels, int columns, int tileCount)
+void GRAP_BUF_LoadColorTileAtlas(u32* pixels, int columns, int tileCount, int tileSize)
 {
+    int scale = pixels != NULL && tileSize == tilePixelSize * 2 ? 2 : 1;
+
+    if (scale != g_colorScale)
+    {
+        // Whatever the color layer holds is laid out for the old scale.
+        g_colorScale = scale;
+        for (int page = 0; page < 2; page++)
+        {
+            if (s_colorMask[page] != NULL)
+                memset(s_colorMask[page], 0, COLOR_LAYER_PIXELS);
+        }
+#if defined(ENABLE_ANIMATED_COLOR_TILES)
+        memset(s_dynValid, 0, sizeof(s_dynValid));
+#endif
+    }
+
     s_colorTileAtlas = pixels;
     s_colorTileColumns = columns;
     s_colorTileCount = tileCount;
+    s_dirty = true;
 }
 
 void GRAP_BUF_UnloadTileset(void)
@@ -721,28 +788,30 @@ void GRAP_BUF_UpdateTimeTileset(int mode, byte hour, byte minute)
     AnimateTimeTileset(s_tileset, mode, hour, minute);
 }
 
-// A tile as 32x32 RGB pixels, for drawing outside the game's own screen (the
-// wide view's extra columns): the full-color atlas when loaded (animated like
-// GRAP_BUF_PutTile), otherwise the 16-color tile doubled with the given palette.
+// A tile as colorTileSize square RGB pixels, for drawing outside the game's
+// own screen (the wide view's extra columns): the full-color atlas when loaded
+// (animated like GRAP_BUF_PutTile), otherwise the 16-color tile doubled with
+// the given palette (the color scale is then 1).
 void GRAP_BUF_RenderTileRGB(int tileIdx, const u32* palette, u32* out)
 {
     if (s_colorTileAtlas != NULL && tileIdx >= 0 && tileIdx < s_colorTileCount)
     {
+        int size = colorTileSize;
 #if defined(ENABLE_ANIMATED_COLOR_TILES)
         int stride;
         int scroll;
         const u32* source = GetColorTileSource(tileIdx, &stride, &scroll);
 #else
-        int stride = s_colorTileColumns * tilePixelSize;
+        int stride = s_colorTileColumns * size;
         int scroll = 0;
-        const u32* source = &s_colorTileAtlas[(tileIdx / s_colorTileColumns) * tilePixelSize * stride +
-                                              (tileIdx % s_colorTileColumns) * tilePixelSize];
+        const u32* source = &s_colorTileAtlas[(tileIdx / s_colorTileColumns) * size * stride +
+                                              (tileIdx % s_colorTileColumns) * size];
 #endif
-        for (int y = 0; y < tilePixelSize; y++)
+        for (int y = 0; y < size; y++)
         {
-            const u32* row = &source[((y - scroll + tilePixelSize) % tilePixelSize) * stride];
-            for (int x = 0; x < tilePixelSize; x++)
-                out[y * tilePixelSize + x] = 0xff000000 | row[x];
+            const u32* row = &source[((y - scroll + size) % size) * stride];
+            for (int x = 0; x < size; x++)
+                out[y * size + x] = 0xff000000 | row[x];
         }
         return;
     }
@@ -773,33 +842,34 @@ void GRAP_BUF_PutTile(int tileX, int tileY, int tileIdx, int xOffset, int yOffse
     {
         u32* colorPixels = GetColorPixels(page);
         u8* colorMask = GetColorMask(page);
-        int dstX = tileX * tilePixelSize + xOffset * loresToHiresRatio;
-        int dstY = tileY * tilePixelSize + yOffset * loresToHiresRatio;
+        int size = colorTileSize;
+        int dstX = (tileX * tilePixelSize + xOffset * loresToHiresRatio) * g_colorScale;
+        int dstY = (tileY * tilePixelSize + yOffset * loresToHiresRatio) * g_colorScale;
 #if defined(ENABLE_ANIMATED_COLOR_TILES)
         int stride;
         int scroll;
         const u32* source = GetColorTileSource(tileIdx, &stride, &scroll);
 #else
-        int srcX = (tileIdx % s_colorTileColumns) * tilePixelSize;
-        int srcY = (tileIdx / s_colorTileColumns) * tilePixelSize;
-        int atlasWidth = s_colorTileColumns * tilePixelSize;
+        int srcX = (tileIdx % s_colorTileColumns) * size;
+        int srcY = (tileIdx / s_colorTileColumns) * size;
+        int atlasWidth = s_colorTileColumns * size;
 #endif
 
-        for (int y = 0; y < tilePixelSize; y++)
+        for (int y = 0; y < size; y++)
         {
             int outY = dstY + y;
-            if (outY < 0 || outY >= renderHeight)
+            if (outY < 0 || outY >= colorHeight)
                 continue;
 
-            for (int x = 0; x < tilePixelSize; x++)
+            for (int x = 0; x < size; x++)
             {
                 int outX = dstX + x;
-                if (outX < 0 || outX >= renderWidth)
+                if (outX < 0 || outX >= colorWidth)
                     continue;
 
-                int dst = outY * renderWidth + outX;
+                int dst = outY * colorWidth + outX;
 #if defined(ENABLE_ANIMATED_COLOR_TILES)
-                int srcRow = (y - scroll + tilePixelSize) % tilePixelSize;
+                int srcRow = (y - scroll + size) % size;
                 colorPixels[dst] = source[srcRow * stride + x];
 #else
                 colorPixels[dst] = s_colorTileAtlas[(srcY + y) * atlasWidth + srcX + x];
@@ -1114,10 +1184,15 @@ void GRAP_BUF_TransferPage(int srcPage, int dstPage, int x1, int y1, int x2, int
     for (int y = 0; y < height; y++)
     {
         memcpy(&dstPagePtr[(y + dstScaledY) * renderWidth + dstScaledX], &srcPagePtr[(y + srcY) * renderWidth + srcX], width);
-        memcpy(&dstColorPixels[(y + dstScaledY) * renderWidth + dstScaledX],
-               &srcColorPixels[(y + srcY) * renderWidth + srcX], width * sizeof(u32));
-        memcpy(&dstColorMask[(y + dstScaledY) * renderWidth + dstScaledX],
-               &srcColorMask[(y + srcY) * renderWidth + srcX], width);
+    }
+
+    int scale = g_colorScale;
+    for (int y = 0; y < height * scale; y++)
+    {
+        size_t dst = (size_t)(y + dstScaledY * scale) * colorWidth + dstScaledX * scale;
+        size_t src = (size_t)(y + srcY * scale) * colorWidth + srcX * scale;
+        memcpy(&dstColorPixels[dst], &srcColorPixels[src], width * scale * sizeof(u32));
+        memcpy(&dstColorMask[dst], &srcColorMask[src], width * scale);
     }
 
     if (dstPage == 0)
@@ -1155,13 +1230,16 @@ void GRAP_BUF_TransferPage_Reveal(int srcPage, int dstPage, int x1, int y1, int 
             byte* dst = &dstPagePtr[(dstPixelY + dy) * renderWidth + dstPixelX];
             dst[0] = dst[1] = src[0];
             dst[2] = dst[3] = src[1];
+        }
 
-            u32* srcColor = &s_colorPixels[srcPage][(srcY + dy) * renderWidth + srcX];
-            u32* dstColor = &s_colorPixels[dstPage][(dstPixelY + dy) * renderWidth + dstPixelX];
-            u8* srcMask = &s_colorMask[srcPage][(srcY + dy) * renderWidth + srcX];
-            u8* dstMask = &s_colorMask[dstPage][(dstPixelY + dy) * renderWidth + dstPixelX];
-            memcpy(dstColor, srcColor, loresToHiresRatio * sizeof(*dstColor));
-            memcpy(dstMask, srcMask, loresToHiresRatio);
+        int scale = g_colorScale;
+        int block = loresToHiresRatio * scale;
+        for (int dy = 0; dy < block; dy++)
+        {
+            size_t srcOffset = (size_t)(srcY * scale + dy) * colorWidth + srcX * scale;
+            size_t dstOffset = (size_t)(dstPixelY * scale + dy) * colorWidth + dstPixelX * scale;
+            memcpy(&s_colorPixels[dstPage][dstOffset], &s_colorPixels[srcPage][srcOffset], block * sizeof(u32));
+            memcpy(&s_colorMask[dstPage][dstOffset], &s_colorMask[srcPage][srcOffset], block);
         }
 
         if (state.produced % 512 == 511)

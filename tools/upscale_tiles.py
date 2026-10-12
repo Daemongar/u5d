@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a 32x32 full-color tile atlas (TILES.BMP) from the original TILES.16.
+"""Build a full-color tile atlas (TILES.BMP) from the original TILES.16.
 
 The original tiles are 512 16x16 images in the 16-color EGA palette. This
 script decodes TILES.16 (the game's LZW format), doubles each tile with
@@ -11,7 +11,10 @@ The output is a 24-bit BMP, 32 tiles across, which the SDL builds load from
 the game data directory.
 
 Usage: tools/upscale_tiles.py <path/to/TILES.16> <output TILES.BMP>
-                              [--header src/graphics/tile_colors.h]
+                              [--scale 2|4] [--header src/graphics/tile_colors.h]
+
+--scale 4 applies Scale2x twice for 64x64 tiles (2048x1024); the default 2
+gives the 32x32 tiles the game draws today.
 
 With --header it also writes the palette the game uses to render animated
 tiles, so they match the atlas. Requires Pillow and NumPy.
@@ -132,16 +135,23 @@ def scale2x(img):
     return out
 
 
-def render_tile(idx16):
-    idx32 = scale2x(idx16)
-    rgb = PALETTE[idx32].copy()
+def render_tile(idx16, scale=SCALE):
+    idx = idx16
+    while idx.shape[0] < TILE * scale:
+        idx = scale2x(idx)
+    rgb = PALETTE[idx].copy()
 
-    # Shading: lighten the top edge of each shape, darken the bottom edge.
-    up = np.pad(idx32, ((1, 0), (0, 0)), mode='edge')[:-1]
-    down = np.pad(idx32, ((0, 1), (0, 0)), mode='edge')[1:]
-    shade = np.ones(idx32.shape, dtype=np.float32)
-    shade[up != idx32] *= 1.10
-    shade[down != idx32] *= 0.86
+    # Shading: lighten the top edge of each shape, darken the bottom edge
+    # (a band one original pixel's half thick, so it looks the same at any scale).
+    band = scale // 2
+    top = np.zeros(idx.shape, dtype=bool)
+    bottom = np.zeros(idx.shape, dtype=bool)
+    for k in range(1, band + 1):
+        top |= np.pad(idx, ((k, 0), (0, 0)), mode='edge')[:-k] != idx
+        bottom |= np.pad(idx, ((0, k), (0, 0)), mode='edge')[k:] != idx
+    shade = np.ones(idx.shape, dtype=np.float32)
+    shade[top] *= 1.10
+    shade[bottom] *= 0.86
     rgb *= shade[:, :, None]
 
     return np.clip(rgb, 0, 255).astype(np.uint8)
@@ -160,23 +170,30 @@ def write_header(path):
 def main():
     args = sys.argv[1:]
     header = None
+    scale = SCALE
     if '--header' in args:
         i = args.index('--header')
         header = args[i + 1]
         del args[i:i + 2]
+    if '--scale' in args:
+        i = args.index('--scale')
+        scale = int(args[i + 1])
+        del args[i:i + 2]
+        if scale not in (2, 4):
+            sys.exit("--scale must be 2 or 4")
     if len(args) != 2:
         sys.exit(__doc__)
 
     with open(args[0], 'rb') as f:
         tiles = decode_tiles(lzw_decompress(f.read()))
 
-    size = TILE * SCALE
+    size = TILE * scale
     rows = (len(tiles) + COLUMNS - 1) // COLUMNS
     atlas = np.zeros((rows * size, COLUMNS * size, 3), dtype=np.uint8)
 
     for i, tile in enumerate(tiles):
         r, c = divmod(i, COLUMNS)
-        atlas[r * size:(r + 1) * size, c * size:(c + 1) * size] = render_tile(tile)
+        atlas[r * size:(r + 1) * size, c * size:(c + 1) * size] = render_tile(tile, scale)
 
     Image.fromarray(atlas, 'RGB').save(args[1], format='BMP')
     print(f"Wrote {len(tiles)} tiles ({atlas.shape[1]}x{atlas.shape[0]}) to {args[1]}")

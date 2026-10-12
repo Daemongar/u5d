@@ -55,6 +55,15 @@ static inline int WideToGameX(int x)
 }
 #define tileSourcePixelSize (tilePixelSize / loresToHiresRatio)
 
+// The full-color tile layer is drawn at g_colorScale times the render size:
+// 1 for a TILES.BMP of 32x32 tiles, 2 (1280x800, 64x64 tiles) for one of
+// 64x64 tiles. Everything else is drawn at 640x400 and doubled under it.
+#define maxColorScale 2
+extern int g_colorScale;
+#define colorTileSize (tilePixelSize * g_colorScale)
+#define colorWidth (renderWidth * g_colorScale)
+#define colorHeight (renderHeight * g_colorScale)
+
 extern u8* g_linearEgaBuffer0;
 extern u8* g_linearEgaBuffer1;
 extern u8* g_linearOverlayBuffer;
@@ -63,7 +72,7 @@ extern u8* g_linearColorMask0;
 
 typedef void pfGrapFlushFrame(void);
 
-extern void GRAP_BUF_LoadColorTileAtlas(u32* pixels, int columns, int tileCount);
+extern void GRAP_BUF_LoadColorTileAtlas(u32* pixels, int columns, int tileCount, int tileSize);
 extern void GRAP_BUF_RenderTileRGB(int tileIdx, const u32* palette, u32* out);
 extern void GRAP_BUF_SaveScreen(void);
 extern void GRAP_BUF_RestoreScreen(void);

@@ -4,7 +4,7 @@
 
 This is an update to U5 decompiled at https://github.com/drcarademono/impera
 
-This is a bug fix and graphics update (640x480 with 32x32 pixel tiles, and full color tiles.)
+This is a bug fix and graphics update (640x400, with full-color 64x64 pixel map tiles at 1280x800.)
 
 ## Goals
 
@@ -105,25 +105,35 @@ Without `mode`, the older `fullscreen=1` / `fullscreen=0` setting selects fullsc
 ### Optional Full-Color Tiles
 
 The SDL builds can load an optional `TILES.BMP` atlas from the game data directory.
-Use a 24-bit or 32-bit BMP arranged as a row-major grid of 32x32 pixel tiles.
-Tile index 0 is the top-left cell; each following index advances left-to-right,
-then top-to-bottom. The atlas may have any number of columns, but its width and
-height must be multiples of 32. Add cells for the tile indices you want to
-replace; indices not present in the atlas continue using the original tileset.
+Use a 24-bit or 32-bit BMP, 32 tiles across, with tiles of either 64x64 pixels
+(2048 wide) or 32x32 pixels (1024 wide). Tile index 0 is the top-left cell; each
+following index advances left-to-right, then top-to-bottom. Indices not present
+in the atlas (if it has fewer rows than 16) continue using the original tileset.
+
+With 64x64 tiles the picture is drawn at 1280x800: map tiles at full detail, and
+the text, stats panel and borders pixel-doubled. With 32x32 tiles everything is
+drawn at 640x400. A `TILES.BMP` in the game folder takes priority over the one
+installed with the game, so remove an older copy from there to use the new one.
 
 The full-color atlas is optional and the original 16-color tiles remain the
 default. No additional image libraries are needed. The legacy DOS graphics
 drivers do not load this SDL-specific atlas.
 
-The included `TILES.BMP` is generated from the original `TILES.16` by `tools/upscale_tiles.py` (requires Pillow and NumPy):
+The included `TILES.BMP` (64x64 tiles) is generated from the original `TILES.16` by `tools/upscale_tiles.py` (requires Pillow and NumPy):
 
 ```sh
-python3 tools/upscale_tiles.py /path/to/TILES.16 TILES.BMP --header src/graphics/tile_colors.h
+python3 tools/upscale_tiles.py /path/to/TILES.16 TILES.BMP --scale 4 --header src/graphics/tile_colors.h
 ```
 
-It doubles each tile with Scale2x to round off diagonal edges and recolors it with a softened palette and light top/bottom shading, keeping the original black backgrounds. Copy the result into the game data directory. `--header` also regenerates `src/graphics/tile_colors.h`, the palette the game uses for animated tiles; rebuild after changing it.
+It enlarges each tile with Scale2x applied twice (`--scale 2`, the default, applies it once for 32x32 tiles) to round off diagonal edges, and recolors it with a softened palette and light top/bottom shading, keeping the original black backgrounds. It is meant as a starting point for hand-drawn detail. Copy the result into the game data directory. `--header` also regenerates `src/graphics/tile_colors.h`, the palette the game uses for animated tiles; rebuild after changing it.
 
 Animated tiles (water, lava, flags, fireplaces, shorelines, the clock) keep moving in full color with `ENABLE_ANIMATED_COLOR_TILES`: water and lava scroll their atlas tiles, and any other tile the game rewrites is rendered in full color from its current data.
+
+AI image upscalers tend to shift tiles a few pixels off the grid. `tools/align_tiles.py` finds each tile in such a sheet by comparing it with the current `TILES.BMP` and cuts it onto an exact grid:
+
+```sh
+python3 tools/align_tiles.py upscaled.png TILES.BMP NEW_TILES.BMP --tile-size 64
+```
 
 ### MS-DOS Target (DJGPP)
 
@@ -154,7 +164,7 @@ Data files load regardless of upper/lower case in their names.
 Graphics
 
 Rendered at 640×400 with 32×32 tiles instead of 320×200.
-An optional full-color tile set (TILES.BMP) replaces any of the original 16-color tiles.
+An optional full-color tile set (TILES.BMP) replaces any of the original 16-color tiles; with its 64×64 tiles the map is drawn at 1280×800.
 Animated tiles (water, lava, flags, fireplaces, shorelines, the clock) keep animating in full color.
 An optional Wide view (16:9) shows a 17-column map outdoors and in towns instead of 11, with the stats panel at the right edge; combat keeps its 11x11 battlefield.
 A softer, less oversaturated version of the 16-color palette.

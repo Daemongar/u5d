@@ -18,6 +18,7 @@ static SDL_Texture* s_sdlTexture;
 static Uint32* s_colorTileAtlas;
 static int s_colorTileColumns;
 static int s_colorTileCount;
+static int s_colorTileSize;
 
 int windowWidth = 1280;
 int windowHeight = 960;
@@ -28,7 +29,8 @@ SDL_FRect g_presentRect = {0, 0, 1280, 960};
 int g_presentWidth = hiresWidth; // width of the composed picture
 int g_presentLayout = PRESENT_LAYOUT_NORMAL;
 
-// The game's own 640x400 picture, before it is laid out for the window.
+// The game's own 640x400 picture (times g_colorScale), before it is laid out
+// for the window.
 static Uint32* s_frame;
 
 extern u8 D_5893_map_id;
@@ -109,10 +111,13 @@ static void LoadColorTileAtlas(void)
         return;
     }
 
-    if (source->w <= 0 || source->h <= 0 ||
-        source->w % tilePixelSize != 0 || source->h % tilePixelSize != 0)
+    // 32 tiles across, each 32x32 or (drawn at 1280x800) 64x64 pixels.
+    int tileSize = source->w / 32;
+    if (source->w % 32 != 0 || (tileSize != tilePixelSize && tileSize != tilePixelSize * 2) ||
+        source->h <= 0 || source->h % tileSize != 0)
     {
-        fprintf(stderr, "%s must be a grid of %dx%d pixel tiles\n", path, tilePixelSize, tilePixelSize);
+        fprintf(stderr, "%s must be 32 tiles across, each %dx%d or %dx%d pixels\n", path,
+                tilePixelSize, tilePixelSize, tilePixelSize * 2, tilePixelSize * 2);
         SDL_DestroySurface(source);
         return;
     }
@@ -125,8 +130,9 @@ static void LoadColorTileAtlas(void)
         return;
     }
 
-    s_colorTileColumns = converted->w / tilePixelSize;
-    int rows = converted->h / tilePixelSize;
+    s_colorTileSize = tileSize;
+    s_colorTileColumns = converted->w / tileSize;
+    int rows = converted->h / tileSize;
     s_colorTileCount = s_colorTileColumns * rows;
     size_t pixelCount = (size_t)converted->w * (size_t)converted->h;
     s_colorTileAtlas = malloc(pixelCount * sizeof(*s_colorTileAtlas));
@@ -151,9 +157,9 @@ static void LoadColorTileAtlas(void)
     SDL_DestroySurface(converted);
     if (g_options.colorTiles)
     {
-        GRAP_BUF_LoadColorTileAtlas(s_colorTileAtlas, s_colorTileColumns, s_colorTileCount);
+        GRAP_BUF_LoadColorTileAtlas(s_colorTileAtlas, s_colorTileColumns, s_colorTileCount, s_colorTileSize);
     }
-    fprintf(stderr, "Loaded %d full-color tiles from %s\n", s_colorTileCount, path);
+    fprintf(stderr, "Loaded %d full-color %dx%d tiles from %s\n", s_colorTileCount, tileSize, tileSize, path);
 }
 
 // Shrink a windowed size (keeping its shape) so it fits on the primary display.
@@ -215,9 +221,11 @@ void GRAP_SDL_Initialize(void)
     // bordered modes differs from the requested width/height.
     SDL_GetWindowSizeInPixels(s_sdlWindow, &windowWidth, &windowHeight);
 
-    // Wide enough for the wide view; normal frames use the left 640 columns.
-    s_sdlSurface = SDL_CreateSurface(WIDE_RENDER_WIDTH, hiresHeight, SDL_GetPixelFormatForMasks(32, 0xff0000, 0xff00, 0xff, 0xff000000));
-    s_frame = malloc(sizeof(Uint32) * hiresWidth * hiresHeight);
+    // Big enough for the wide view at the largest color scale; smaller frames
+    // use the top left corner.
+    s_sdlSurface = SDL_CreateSurface(WIDE_RENDER_WIDTH * maxColorScale, hiresHeight * maxColorScale,
+                                     SDL_GetPixelFormatForMasks(32, 0xff0000, 0xff00, 0xff, 0xff000000));
+    s_frame = malloc(sizeof(Uint32) * hiresWidth * hiresHeight * maxColorScale * maxColorScale);
 
     s_sdlTexture = SDL_CreateTextureFromSurface(s_sdlRenderer, s_sdlSurface);
     SDL_SetTextureScaleMode(s_sdlTexture, SDL_SCALEMODE_LINEAR);
@@ -227,7 +235,7 @@ void GRAP_SDL_Initialize(void)
         exit(0);
     }
 
-    if (s_sdlSurface->pitch != WIDE_RENDER_WIDTH * 4 || s_frame == NULL)
+    if (s_sdlSurface->pitch != WIDE_RENDER_WIDTH * maxColorScale * 4 || s_frame == NULL)
     {
         exit(0);
     }
@@ -239,7 +247,7 @@ void GRAP_SDL_Initialize(void)
 void GRAP_SDL_Cleanup(void)
 {
     GRAP_BUF_Cleanup();
-    GRAP_BUF_LoadColorTileAtlas(NULL, 0, 0);
+    GRAP_BUF_LoadColorTileAtlas(NULL, 0, 0, 0);
     free(s_colorTileAtlas);
     s_colorTileAtlas = NULL;
     s_colorTileColumns = 0;
@@ -258,37 +266,40 @@ void GRAP_SDL_Cleanup(void)
     s_sdlWindow = NULL;
 }
 
+// The 16-color screen (doubled when the color scale is 2) with the full-color
+// tile layer over it.
 static void LinearToRGB(void)
 {
     Uint32* pixels = s_frame;
-    int pitch = hiresWidth;
+    int scale = g_colorScale;
+    int pitch = colorWidth;
     const Uint32* s_egaPalette = CurrentPalette();
 
-    for (int y = 0; y < renderHeight; y++)
+    for (int y = 0; y < colorHeight; y++)
     {
-        for (int x = 0; x < renderWidth; x++)
+        const u8* ega = &g_linearEgaBuffer0[(y / scale) * renderWidth];
+        for (int x = 0; x < colorWidth; x++)
         {
-            Uint32 color = s_egaPalette[g_linearEgaBuffer0[y * renderWidth + x] & 0xf];
-            int offset = y * renderWidth + x;
+            Uint32 color = s_egaPalette[ega[x / scale] & 0xf];
+            int offset = y * pitch + x;
             if (g_linearColorMask0 != NULL && g_linearColorMask0[offset])
             {
                 color = 0xff000000 | g_linearColorPixels0[offset];
             }
-            pixels[y * pitch + x] = color;
+            pixels[offset] = color;
         }
     }
 
 #if defined(ENABLE_GRAP_OVERLAY)
-    for (int y = 0; y < hiresHeight; y++)
+    for (int y = 0; y < colorHeight; y++)
     {
-        for (int x = 0; x < hiresWidth; x++)
+        for (int x = 0; x < colorWidth; x++)
         {
-            byte pixel = g_linearOverlayBuffer[y * hiresWidth + x] & 0xf;
+            byte pixel = g_linearOverlayBuffer[(y / scale) * hiresWidth + x / scale] & 0xf;
             if (pixel != 0)
             {
                 pixels[y * pitch + x] = s_egaPalette[pixel];
             }
-            // pixels[y * pitch + x] |= egaPalette[pLinearOverlayBuffer[y * hiresWidth + x] & 0xf];
         }
     }
 #endif
@@ -313,33 +324,39 @@ static bool IsMapScreen(void)
     return !g_presentTitleScreens && !g_presentFullScreenPage && D_5893_map_id != 0x40 && D_5893_map_id != 0x41;
 }
 
+// Sizes below are in 640x400 render pixels (g_presentWidth too, for mouse
+// mapping); the frame itself is g_colorScale times larger.
 static void ComposeFrame(void)
 {
     Uint32* out = s_sdlSurface->pixels;
     int pitch = s_sdlSurface->pitch / 4;
     Uint32 black = CurrentPalette()[0];
+    int scale = g_colorScale;
+    int frameWidth = hiresWidth * scale;
+    int frameHeight = hiresHeight * scale;
 
     if (!g_options.wideView)
     {
         g_presentWidth = hiresWidth;
         g_presentLayout = PRESENT_LAYOUT_NORMAL;
-        for (int y = 0; y < hiresHeight; y++)
-            memcpy(&out[y * pitch], &s_frame[y * hiresWidth], sizeof(Uint32) * hiresWidth);
+        for (int y = 0; y < frameHeight; y++)
+            memcpy(&out[y * pitch], &s_frame[y * frameWidth], sizeof(Uint32) * frameWidth);
         return;
     }
 
     g_presentWidth = WIDE_RENDER_WIDTH;
+    int wideWidth = WIDE_RENDER_WIDTH * scale;
 
     if (!IsMapScreen())
     {
         g_presentLayout = PRESENT_LAYOUT_CENTERED;
-        int margin = (WIDE_RENDER_WIDTH - hiresWidth) / 2;
-        for (int y = 0; y < hiresHeight; y++)
+        int margin = (wideWidth - frameWidth) / 2;
+        for (int y = 0; y < frameHeight; y++)
         {
             Uint32* row = &out[y * pitch];
             for (int x = 0; x < margin; x++)
-                row[x] = row[WIDE_RENDER_WIDTH - 1 - x] = black;
-            memcpy(&row[margin], &s_frame[y * hiresWidth], sizeof(Uint32) * hiresWidth);
+                row[x] = row[wideWidth - 1 - x] = black;
+            memcpy(&row[margin], &s_frame[y * frameWidth], sizeof(Uint32) * frameWidth);
         }
         return;
     }
@@ -347,7 +364,8 @@ static void ComposeFrame(void)
     g_presentLayout = PRESENT_LAYOUT_WIDE_MAP;
 
     // Draw the extra squares' tiles (from WIDE_UpdateExtraTiles) once per frame.
-    static Uint32 tiles[WIDE_EXTRA_ROWS][2 * WIDE_EXTRA_COLUMNS][tilePixelSize * tilePixelSize];
+    static Uint32 tiles[WIDE_EXTRA_ROWS][2 * WIDE_EXTRA_COLUMNS][tilePixelSize * tilePixelSize * maxColorScale * maxColorScale];
+    int size = colorTileSize;
     // Black until the game has drawn its map once (the table starts zeroed,
     // which would otherwise show tile 0 everywhere).
     bool extrasReady = g_wideExtraTilesReady;
@@ -356,35 +374,38 @@ static void ComposeFrame(void)
             if (g_wideExtraTiles[row][col] >= 0)
                 GRAP_BUF_RenderTileRGB(g_wideExtraTiles[row][col], CurrentPalette(), tiles[row][col]);
 
-    for (int y = 0; y < hiresHeight; y++)
+    for (int y = 0; y < frameHeight; y++)
     {
         Uint32* row = &out[y * pitch];
-        const Uint32* src = &s_frame[y * hiresWidth];
-        bool borderRow = y < MAP_RENDER_TOP || y >= MAP_RENDER_BOTTOM;
+        const Uint32* src = &s_frame[y * frameWidth];
+        int renderY = y / scale;
+        bool borderRow = renderY < MAP_RENDER_TOP || renderY >= MAP_RENDER_BOTTOM;
+        int tileY = y - MAP_RENDER_TOP * scale; // within the extra squares
 
-        for (int x = 0; x < WIDE_RENDER_WIDTH; x++)
+        for (int x = 0; x < wideWidth; x++)
         {
-            int srcX = WideToGameX(x);
+            int renderX = x / scale;
+            int sub = x % scale;
+            int srcX = WideToGameX(renderX);
             if (srcX >= 0)
             {
-                row[x] = src[srcX];
+                row[x] = src[srcX * scale + sub];
             }
             else if (borderRow)
             {
-                row[x] = src[MAP_RENDER_LEFT + (x % 16)]; // carry the frame border across
+                row[x] = src[(MAP_RENDER_LEFT + (renderX % 16)) * scale + sub]; // carry the frame border across
             }
             else
             {
                 // An extra square: left strip starts at the map's old left edge,
                 // the right strip right after the (moved) map.
-                int stripX = x < MAP_RENDER_RIGHT ? x - MAP_RENDER_LEFT
-                                                  : x - (MAP_RENDER_RIGHT + WIDE_EXTRA_WIDTH) + WIDE_EXTRA_WIDTH;
-                int col = stripX / tilePixelSize;
-                int tileRow = (y - MAP_RENDER_TOP) / tilePixelSize;
+                int stripX = renderX < MAP_RENDER_RIGHT ? renderX - MAP_RENDER_LEFT
+                                                        : renderX - (MAP_RENDER_RIGHT + WIDE_EXTRA_WIDTH) + WIDE_EXTRA_WIDTH;
+                stripX = stripX * scale + sub;
+                int col = stripX / size;
+                int tileRow = tileY / size;
                 int tile = extrasReady ? g_wideExtraTiles[tileRow][col] : -1;
-                row[x] = tile >= 0 ? tiles[tileRow][col][((y - MAP_RENDER_TOP) % tilePixelSize) * tilePixelSize +
-                                                         stripX % tilePixelSize]
-                                   : black;
+                row[x] = tile >= 0 ? tiles[tileRow][col][(tileY % size) * size + stripX % size] : black;
             }
         }
     }
@@ -403,7 +424,7 @@ void GRAP_SDL_FlushFrame(void)
     // each frame so the picture always fills the window instead of clipping.
     SDL_GetWindowSizeInPixels(s_sdlWindow, &windowWidth, &windowHeight);
 
-    SDL_FRect srcRect = {0, 0, (float)g_presentWidth, hiresHeight};
+    SDL_FRect srcRect = {0, 0, (float)(g_presentWidth * g_colorScale), (float)(hiresHeight * g_colorScale)};
     SDL_FRect dstRect = {0, 0, windowWidth, windowHeight};
 
     if (g_options.keepAspect)
@@ -461,7 +482,8 @@ void GRAP_SDL_ApplyDisplayOptions(void)
     }
     SDL_SyncWindow(s_sdlWindow);
 
-    GRAP_BUF_LoadColorTileAtlas(g_options.colorTiles ? s_colorTileAtlas : NULL, s_colorTileColumns, s_colorTileCount);
+    GRAP_BUF_LoadColorTileAtlas(g_options.colorTiles ? s_colorTileAtlas : NULL, s_colorTileColumns, s_colorTileCount,
+                                s_colorTileSize);
 }
 
 static GraphicsDriverOps s_winOps =
