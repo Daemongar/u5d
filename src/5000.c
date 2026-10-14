@@ -310,6 +310,9 @@ void ULTIMA_56ac_DrawMap(void)
                 }
                 else
                 {
+#if defined(TARGET_SDL)
+                    WIDE_PutGroundUnderTerrain(local_6, local_8, GetMapViewport(local_6, local_8));
+#endif
                     // draw map tile
                     ULTIMA_10e0_GRAP_51_PutTile(D_b11e[GetMapViewport(local_6, local_8)], local_6, local_8);
                 }

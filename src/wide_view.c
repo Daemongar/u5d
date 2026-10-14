@@ -126,6 +126,65 @@ static bool InLineOfSight(int dx, int dy)
     return true;
 }
 
+// The map tile at (dx, dy) from the party, or from the battlefield's top-left
+// in combat; -1 if there is none.
+static int MapTileAt(int dx, int dy)
+{
+    if (D_5893_map_id >= 0x80)
+    {
+        if (dx < 0 || dx > 10 || dy < 0 || dy > 10)
+            return -1;
+        return GetCombatMap(dx, dy);
+    }
+    return TileAt(dx, dy);
+}
+
+// A map tile drawn with see-through pixels (a sign, fountain or clock without
+// its background) has nothing under it in the map; whatever was last on screen
+// would show through. Take the ground from its neighbours instead: the tile
+// most of the four beside it share (ties going to left, right, above, below),
+// then the corners. Open ground such as floor or grass is preferred; walls and
+// other tiles that block the view are used only when nothing else is near.
+// Returns the tile to draw, or -1.
+static int GroundUnder(int dx, int dy)
+{
+    static const int s_neighbours[8][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+
+    for (int pass = 0; pass < 4; pass++)
+    {
+        bool allowWalls = pass >= 2;
+        int ring = pass % 2;
+        int tiles[4];
+        int count = 0;
+
+        for (int i = ring * 4; i < ring * 4 + 4; i++)
+        {
+            int tile = MapTileAt(dx + s_neighbours[i][0], dy + s_neighbours[i][1]);
+            if (tile < 0 || GRAP_BUF_TileHasClearPixels(D_b11e[tile]))
+                continue;
+            if (!allowWalls && BlocksView((byte)tile))
+                continue;
+            tiles[count++] = D_b11e[tile];
+        }
+
+        int best = -1, bestVotes = 0;
+        for (int i = 0; i < count; i++)
+        {
+            int votes = 0;
+            for (int j = 0; j < count; j++)
+                votes += tiles[j] == tiles[i];
+            if (votes > bestVotes)
+            {
+                best = tiles[i];
+                bestVotes = votes;
+            }
+        }
+        if (best >= 0)
+            return best;
+    }
+    return -1;
+}
+
 static int ExtraTile(int dx, int dy, int* under)
 {
     int light = D_58a5;
@@ -152,10 +211,14 @@ static int ExtraTile(int dx, int dy, int* under)
             actor->_2_x == (byte)(D_5896_map_x + dx) && actor->_3_y == (byte)(D_5897_map_y + dy))
         {
             *under = D_b11e[tile];
+            if (GRAP_BUF_TileHasClearPixels(*under))
+                *under = GroundUnder(dx, dy);
             return 0x100 + actor->_1_animTile;
         }
     }
 
+    if (GRAP_BUF_TileHasClearPixels(D_b11e[tile]))
+        *under = GroundUnder(dx, dy);
     return D_b11e[tile];
 }
 
@@ -195,7 +258,22 @@ void WIDE_PutTerrainUnderActor(int x, int y, int actorTile)
         tile = TileAt(x - 5, y - 5);
 
     if (tile >= 0)
+    {
+        WIDE_PutGroundUnderTerrain(x, y, tile);
         ULTIMA_10e0_GRAP_51_PutTile(D_b11e[tile], x, y);
+    }
+}
+
+// Before a map tile with see-through pixels is drawn at (x, y) in the 11x11
+// view, draw the ground from its neighbours there (see GroundUnder).
+void WIDE_PutGroundUnderTerrain(int x, int y, int mapTile)
+{
+    if (!GRAP_BUF_TileHasClearPixels(D_b11e[mapTile]))
+        return;
+
+    int ground = D_5893_map_id >= 0x80 ? GroundUnder(x, y) : GroundUnder(x - 5, y - 5);
+    if (ground >= 0)
+        ULTIMA_10e0_GRAP_51_PutTile(ground, x, y);
 }
 
 #endif
