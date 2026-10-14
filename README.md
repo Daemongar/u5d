@@ -161,7 +161,9 @@ Note: executable linking is currently not possible. This target is used only for
 
 ## Music
 
-The SDL targets (Windows and Linux) expect background music as `BGM/01`-`15` (`.ogg` or `.mp3`) in the directory the game is run from (see `src/audio/aud_sdl.c`). These aren't included in this repository. `u5win/ULTMVMSC.P00` is a Commodore 64 program (Minstrel Dragon / UDIC's "Lost Music") containing 15 selectable Ultima V tracks; run `tools/extract_bgm.ps1` (requires VICE and ffmpeg) to render them to the expected `.ogg` files.
+The SDL targets (Windows and Linux) expect background music as `BGM/01`-`15` in the directory the game is run from (see `src/audio/aud_sdl.c`). Use `.ogg`: `.mp3` is only read when SDL_mixer is built with MP3 support, which the vcpkg build used for Windows isn't. To convert, encode once at high quality, e.g. `ffmpeg -i 01.mp3 -c:a libvorbis -q:a 6 01.ogg`. The tracks aren't included in this repository; put them in the repository's `BGM/` folder and the Visual Studio build copies the `.ogg` files and `loops.txt` next to the program.
+
+An optional `BGM/loops.txt` gives each track a loop point, so it plays its intro once and then repeats seamlessly, skipping the fade-out and the restart from the top. The one in this repository fits the PC-98 soundtrack rip (`01.mp3`-`15.mp3`) and `.ogg` files converted from it as above; copy it next to the music. Without it, tracks loop whole. `u5win/ULTMVMSC.P00` is a Commodore 64 program (Minstrel Dragon / UDIC's "Lost Music") containing 15 selectable Ultima V tracks; run `tools/extract_bgm.ps1` (requires VICE and ffmpeg) to render them to the expected `.ogg` files.
 
 ## Change Details
 Ultima V: Changes from the PC-DOS Version
@@ -180,7 +182,7 @@ An optional Wide view (16:9) shows a 17-column map outdoors and in towns instead
 A softer, less oversaturated version of the 16-color palette.
 Sound
 
-Background music from the Commodore 64 version's soundtrack, as .ogg or .mp3 files.
+Background music from the Commodore 64 version's soundtrack, as .ogg files.
 PC-speaker sound effects are recreated in software, either as the original speaker played them (Classic) or with smooth tones, filtered noise and light reverb (Enhanced, the default). Effects can overlap instead of cutting each other off.
 With Enhanced effects, fountains and waterfalls play continuous running water that grows louder as you approach, in place of the original's crackle.
 Gameplay

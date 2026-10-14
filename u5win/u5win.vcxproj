@@ -191,6 +191,17 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <!-- Music is read only from BGM\ under the folder the game runs in, so bring
+         the repository's tracks next to the build. TILES.BMP needs no copy: the
+         game falls back to the repository root, which keeps F8 reloads live. -->
+    <PostBuildEvent>
+      <Command>if exist "$(ProjectDir)..\BGM\loops.txt" xcopy "$(ProjectDir)..\BGM\loops.txt" "$(OutDir)BGM\" /D /Y /I /Q &gt;nul
+if exist "$(ProjectDir)..\BGM\*.ogg" xcopy "$(ProjectDir)..\BGM\*.ogg" "$(OutDir)BGM\" /D /Y /I /Q &gt;nul
+exit /b 0</Command>
+      <Message>Copying background music to the output folder</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="..\Makefile" />
     <None Include="..\src\build.bat" />

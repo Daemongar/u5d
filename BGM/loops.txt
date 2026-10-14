@@ -1,0 +1,19 @@
+# Loop points for BGM/01-13: <track> <loop start> <loop end>, in sample frames
+# (44.1 kHz). Each track plays its intro once, then repeats [start, end).
+# Measured on the PC-98 tracks (01.mp3-15.mp3) decoded by ffmpeg, so they fit
+# those files and .ogg files encoded from them with ffmpeg; other recordings
+# need their own values, or no file at all to loop whole tracks.
+# 14 and 15 (the ending) aren't listed and play as they are.
+01 44100 5190305
+02 22050 2680883
+03 88200 1794517
+04 22050 2477097
+05 66150 6017798
+06 44100 2286409
+07 66150 2560050
+08 110250 1959319
+09 44100 2097793
+10 44100 4203920
+11 22050 3734696
+12 154350 2123195
+13 44100 4093671

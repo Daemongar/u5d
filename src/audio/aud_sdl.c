@@ -27,6 +27,14 @@ static SDL_AudioSpec s_mixerSpec;
 static MIX_Audio* s_bgm[20];
 static MIX_Audio* s_sfx[256];
 
+// Optional loop points from BGM/loops.txt, in sample frames of each file: play
+// the intro once, then repeat [start, end) so a track never reaches the fade-out
+// or restarts from the top. An end of 0 loops the whole file.
+static Sint64 s_bgmLoopStart[20];
+static Sint64 s_bgmLoopEnd[20];
+
+static void AUDIO_SDL_LoadBgmLoops(void);
+
 static int s_currentBgmId;
 static int s_queuedBgmId;
 
@@ -277,7 +285,8 @@ void AUDIO_SDL_Cleanup(void)
 
 void AUDIO_SDL_LoadBgmTable(void)
 {
-    // Tracks may be either .ogg or .mp3; .ogg wins if both exist.
+    // Tracks should be .ogg. .mp3 is tried as a fallback but only loads when
+    // SDL_mixer has MP3 support, which the vcpkg build for Windows lacks.
     static const char* const exts[] = { "ogg", "mp3" };
 
     for (int i = 1; i <= 15; i++)
@@ -298,6 +307,42 @@ void AUDIO_SDL_LoadBgmTable(void)
             printf("Couldn't load BGM/%02d.ogg or .mp3: %s\n", i, SDL_GetError());
         }
     }
+
+    AUDIO_SDL_LoadBgmLoops();
+}
+
+// BGM/loops.txt lines: "<track> <loop start> <loop end>", '#' starts a comment.
+// The frames belong to the exact files they were measured on, so they live
+// beside the music rather than in the code.
+static void AUDIO_SDL_LoadBgmLoops(void)
+{
+    char line[128];
+    FILE* fp = FILE_Open("BGM/loops.txt", "r");
+
+    for (int i = 0; i < ARRAYSIZE(s_bgmLoopEnd); i++)
+    {
+        s_bgmLoopStart[i] = s_bgmLoopEnd[i] = 0;
+    }
+
+    if (fp == NULL)
+        return;
+
+    while (fgets(line, sizeof(line), fp) != NULL)
+    {
+        int id;
+        long long start, end;
+
+        if (line[0] == '#' || sscanf(line, "%d %lld %lld", &id, &start, &end) != 3)
+            continue;
+
+        if (id > 0 && id < ARRAYSIZE(s_bgmLoopEnd) && start >= 0 && end > start)
+        {
+            s_bgmLoopStart[id] = start;
+            s_bgmLoopEnd[id] = end;
+        }
+    }
+
+    fclose(fp);
 }
 
 void AUDIO_SDL_LoadSfxTable(void)
@@ -349,6 +394,8 @@ void AUDIO_SDL_PlayBgmSub(int id)
         return;
 
     MIX_SetTrackAudio(s_bgmTrack, s_bgm[id]);
+    SDL_SetNumberProperty(s_bgmTrackProp, MIX_PROP_PLAY_LOOP_START_FRAME_NUMBER, s_bgmLoopStart[id]);
+    SDL_SetNumberProperty(s_bgmTrackProp, MIX_PROP_PLAY_MAX_FRAME_NUMBER, s_bgmLoopEnd[id] > 0 ? s_bgmLoopEnd[id] : -1);
     MIX_PlayTrack(s_bgmTrack, s_bgmTrackProp);
     const char* err = SDL_GetError();
     if (err) { puts(err); }

@@ -8,7 +8,8 @@
 *.d
 *.OBJ
 /build
-/BGM/
+/BGM/*
+!/BGM/loops.txt
 LOG.TXT
 __pycache__/
 /backup/
