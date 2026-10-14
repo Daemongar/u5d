@@ -25,6 +25,12 @@ extern void ULTIMA_16ba_PrintChar(uint a);
 extern void ULTIMA_1850_PrintString(char* a);
 extern void ULTIMA_1a3e_PrintNumber(int a, int b, int c);
 
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+// Lines the text cursor has moved down (newlines and wrapping); conversations
+// reset it to page long replies.
+extern int D_textLinesAdvanced;
+#endif
+
 // Keyboard
 
 extern void ULTIMA_1b16_ClearKbdBuffer(void);

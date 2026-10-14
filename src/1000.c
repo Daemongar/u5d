@@ -292,6 +292,10 @@ int ULTIMA_16a6_GetDefaultDrive(void)
 // REGION: TEXT
 //
 
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+int D_textLinesAdvanced;
+#endif
+
 static void ULTIMA_17f4_ApplyCharEffects(byte* es, int di);
 static void ULTIMA_1f77_ConvertCharCoordToPixel(TextWindow* window, int* pAX, int* pBX, int* pCX, int* pDX);
 
@@ -394,6 +398,9 @@ void ULTIMA_16ba_PrintChar(uint ch)
     }
 
     text_window->currentY++;
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+    D_textLinesAdvanced++;
+#endif
 #if defined(ENABLE_SPEED_FIX)
     TIME_SleepMs(10);
 #endif

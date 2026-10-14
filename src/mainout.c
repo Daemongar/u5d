@@ -675,7 +675,15 @@ int MAINOUT_06ec_AttackCmd(void)
             local_6 = (uint)D_5896_map_x + D_5876;
             local_8 = (uint)D_5897_map_y + D_5878;
             local_a = ULTIMA_368e_FindActorTileAtPos(local_6, local_8, D_5895_map_level) & 0xfc;
+#if defined(ENABLE_BUG_FIX)
+            // BUGFIX: on foot a whirlpool could be attacked; it has no foe stats
+            // (group size 0), so setting up the fight crashed in RandomRange(1, 0)
+            if (local_a == TILE_ACTOR_PIRATE ||
+                (local_a != TILE_ACTOR_SHARD && local_a != TILE_ACTOR_E8 && local_a != TILE_ACTOR_WHIRLPOOL &&
+                 local_a >= TILE_ACTOR_WIZARD))
+#else
             if (local_a == TILE_ACTOR_PIRATE || (local_a != TILE_ACTOR_SHARD && local_a != TILE_ACTOR_E8 && local_a >= TILE_ACTOR_WIZARD))
+#endif
             {
                 ULTIMA_6150_Combat(D_5876);
             }

@@ -29,21 +29,33 @@
 #define TALK_INPUT_MAX 0xf
 #endif
 
-// Number of dialog lines printed before an automatic "press any key" pause.
-#define TALK_LINES_PER_PAGE 6
-
 static int TALK_0f32_ProcessChar(byte param_1);
 static void TALK_127e_StartTalk(int a);
 
 #if defined(ENABLE_DIALOG_IMPROVEMENTS)
-// Bitmask of which NPC-specific keyword slots (0..31) have already been answered
-// this conversation. Reset at the start of each call to TALK_127e_StartTalk.
-static u32 D_talk_asked_mask;
+// Shown while a long reply waits for a key before scrolling on.
+#define TALK_MORE_PROMPT "-more-"
 
-// Count of newlines printed since the last player input or conversation start.
-// When this hits TALK_LINES_PER_PAGE, TALK_04d2_PrintCr inserts an 0x8f-style
-// keypress wait so long responses don't scroll off the text window.
-static int D_talk_line_count;
+// Called before a reply starts a new line. D_textLinesAdvanced counts the lines
+// printed since the player last read the window (their last input or the last
+// pause); once they fill it, the next line would push one off unread, so show
+// a prompt and wait for a key first.
+static void TALK_PauseIfPageFull(void)
+{
+    TextWindow* window = D_539a_currentTextWindow;
+
+    if (!g_options.dialogImprovements || ULTIMA_1f12_GetCurrentTextX() != 0 ||
+        D_textLinesAdvanced < window->bottom - window->top)
+    {
+        return;
+    }
+
+    ULTIMA_1c9e_SelectCharset(0);
+    ULTIMA_1850_PrintString(TALK_MORE_PROMPT);
+    ULTIMA_266c_GetChar();
+    ULTIMA_1fa0_Backspace(sizeof(TALK_MORE_PROMPT) - 1);
+    D_textLinesAdvanced = 0;
+}
 
 // Forward declarations needed by TALK_PrintKeywordHints (defined further below).
 static int  TALK_099a(int param_1);
@@ -258,7 +270,13 @@ static int TALK_01e2(void)
 {
     int local_14;
     int local_16;
+#if defined(ENABLE_BUG_FIX)
+    // BUGFIX: the answer is read with a 14-character limit (plus the
+    // terminator) into what was a 4-byte buffer
+    char local_12[0xe + 1];
+#else
     char local_12[4];
+#endif
     byte local_e; // unused
 
     if (D_5893_map_id != 0x12)
@@ -487,15 +505,6 @@ int TALK_041c_TalkCmd(void)
 static void TALK_04d2_PrintCr(void)
 {
     TALK_0f32_ProcessChar(0x80 | 0xd);
-
-#if defined(ENABLE_DIALOG_IMPROVEMENTS)
-    D_talk_line_count++;
-    if (g_options.dialogImprovements && D_talk_line_count >= TALK_LINES_PER_PAGE)
-    {
-        D_talk_line_count = 0;
-        ULTIMA_266c_GetChar();
-    }
-#endif
 }
 
 // OK P1
@@ -514,6 +523,13 @@ static void TALK_04e2_PrintWord(void)
     {
         while (local_4 < D_4af1) // c4c9
         {
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+            if ((D_bce4[local_4] & 0x7f) != 10 && (D_bce4[local_4] & 0x7f) != 0x20)
+            {
+                TALK_PauseIfPageFull();
+            }
+#endif
+
             // c4d5 -> c47c
             ULTIMA_1c9e_SelectCharset((D_bce4[local_4] & 0x80) == 0);
             local_6 = D_bce4[local_4] & 0x7f;
@@ -915,9 +931,8 @@ static void TALK_0a2c_GetString(void)
         D_bcf8[local_4] = (char)ULTIMA_2032_ToUpper((byte)D_bcf8[local_4]);
     }
 
-    // Player just provided new input — reset the line counter so the next
-    // response gets a fresh page budget before auto-pausing.
-    D_talk_line_count = 0;
+    // The player has read everything up to their input; page from here.
+    D_textLinesAdvanced = 0;
 #endif
 }
 
@@ -1066,31 +1081,6 @@ static int TALK_0b04(void)
             }
             else
             {
-#if defined(ENABLE_DIALOG_IMPROVEMENTS)
-                if (g_options.dialogImprovements && D_bcf6 < 32 && (D_talk_asked_mask & ((u32)1 << D_bcf6)) != 0)
-                {
-                    // Already answered this keyword this conversation
-                    ULTIMA_1850_PrintString(_TEXT(0x9420, "\"I have already told thee of that."));
-                    TALK_04da_PrintQuoteMark();
-                    TALK_04d2_PrintCr();
-                    TALK_04d2_PrintCr();
-                }
-                else
-                {
-                    if (D_bcf6 < 32)
-                    {
-                        D_talk_asked_mask |= ((u32)1 << D_bcf6);
-                    }
-                    TALK_04da_PrintQuoteMark();
-                    if (TALK_07aa_ProcessNthTalkString(D_bcf6 * 2 + 6) != 0)
-                    {
-                        return 1;
-                    }
-                    TALK_04da_PrintQuoteMark();
-                    TALK_04d2_PrintCr();
-                    TALK_04d2_PrintCr();
-                }
-#else
                 TALK_04da_PrintQuoteMark();
                 if (TALK_07aa_ProcessNthTalkString(D_bcf6 * 2 + 6) != 0)
                 {
@@ -1099,7 +1089,6 @@ static int TALK_0b04(void)
                 TALK_04da_PrintQuoteMark();
                 TALK_04d2_PrintCr();
                 TALK_04d2_PrintCr();
-#endif
             }
         }
     }
@@ -1443,6 +1432,9 @@ static int TALK_0f32_ProcessChar(byte param_1)
     case 0x8f:                // wait
         // 1010
         ULTIMA_266c_GetChar();
+#if defined(ENABLE_DIALOG_IMPROVEMENTS)
+        D_textLinesAdvanced = 0;
+#endif
         return 0; // -> 0f5e
     case 0xfe:
     case 0x85: // gold-
@@ -1677,8 +1669,7 @@ static void TALK_127e_StartTalk(int param_1)
     ULTIMA_256e_ReadFileFromDisk(D_4aa0[local_4], D_b21e, 0x400, local_8);
 
 #if defined(ENABLE_DIALOG_IMPROVEMENTS)
-    D_talk_asked_mask = 0;
-    D_talk_line_count = 0;
+    D_textLinesAdvanced = 0;
 #endif
 
     if (TALK_111c() == 0)
