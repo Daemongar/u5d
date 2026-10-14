@@ -22,6 +22,7 @@ static OptionFlag s_flags[] =
     {"display", "wide_view", &g_options.wideView, false},
     {"sound", "music", &g_options.music, true},
     {"sound", "sound_effects", &g_options.soundEffects, true},
+    {"sound", "enhanced_sound_effects", &g_options.enhancedSounds, true},
     {"sound", "terrain_footsteps", &g_options.terrainFootsteps, true},
     {"gameplay", "mouse_aim", &g_options.mouseAim, true},
     {"gameplay", "dialog_improvements", &g_options.dialogImprovements, true},

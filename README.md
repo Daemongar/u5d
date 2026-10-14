@@ -89,6 +89,7 @@ music=1
 music_volume=8       ; 0-10
 sound_effects=1
 sound_volume=8       ; 0-10
+enhanced_sound_effects=1 ; 0: the original PC-speaker sound
 terrain_footsteps=1
 
 [gameplay]
@@ -180,7 +181,8 @@ A softer, less oversaturated version of the 16-color palette.
 Sound
 
 Background music from the Commodore 64 version's soundtrack, as .ogg or .mp3 files.
-PC-speaker sound effects are recreated in software.
+PC-speaker sound effects are recreated in software, either as the original speaker played them (Classic) or with smooth tones, filtered noise and light reverb (Enhanced, the default). Effects can overlap instead of cutting each other off.
+With Enhanced effects, fountains and waterfalls play continuous running water that grows louder as you approach, in place of the original's crackle.
 Gameplay
 
 Armor now reduces combat damage. In DOS it had no effect.
@@ -212,7 +214,7 @@ Several out-of-bounds memory reads from the original code are fixed.
 Characters imported from Ultima IV are limited to Ultima V's stat and HP caps, fixing broken shop prices and an 800-HP Avatar.
 A level-up can no longer lower a stat that is already above the cap.
 Gameplay changes can be switched on or off in the Options screen (title menu or F1) or in ultima5.ini; bug fixes can be compiled out in platform.h. A separate DOS build can still reproduce the original program exactly.
-Sound effects are synthesized in software (`src/audio/aud_sdl.c`) from the parameters the original driver already dispatches (`AUDIO_DispatchPulse`/`Noise`/`Tone`/`SweepTone`), rather than played back from sampled `SFX/*.wav` files - no extra assets required. A handful of IDs with no reachable dispatch path (`mirror`, `drip1`, `drip2`) remain silent.
+Sound effects are synthesized in software (`src/audio/sfx_synth.c`) from the parameters the original driver already dispatches (`AUDIO_DispatchPulse`/`Noise`/`Tone`/`SweepTone`), rather than played back from sampled `SFX/*.wav` files - no extra assets required. The four speaker routines (ULTIMA.EXE 2192, 223c, 22c0, 43ae) were disassembled to reproduce them: pulse_ is a 16-bit phase accumulator switching the speaker against a moving threshold, white_noise plays random pitches up to its limit, and the sweep steps the timer's pitch. Their speed depended on the machine's timer calibration, so the lengths of their loop units are estimates. A handful of IDs with no reachable dispatch path (`mirror`, `drip1`, `drip2`) remain silent.
 
 ## Discoveries
 

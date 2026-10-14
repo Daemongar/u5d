@@ -227,6 +227,7 @@
     <ClCompile Include="..\src\audio\aud_sdl.c" />
     <ClCompile Include="..\src\audio\aud_mus.c" />
     <ClCompile Include="..\src\audio\aud_sfx.c" />
+    <ClCompile Include="..\src\audio\sfx_synth.c" />
     <ClCompile Include="..\src\audio\aud_spk.c">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Strict Debug|Win32'">true</ExcludedFromBuild>
@@ -341,6 +342,7 @@
     <ClInclude Include="..\src\audio\aud_ops.h" />
     <ClInclude Include="..\src\audio\aud_sfx.h" />
     <ClInclude Include="..\src\audio\sfx_map.h" />
+    <ClInclude Include="..\src\audio\sfx_synth.h" />
     <ClInclude Include="..\src\backend\backend.h" />
     <ClInclude Include="..\src\blckthrn.h" />
     <ClInclude Include="..\src\cast.h" />

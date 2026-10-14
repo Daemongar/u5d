@@ -167,6 +167,9 @@
     <ClCompile Include="..\src\audio\aud_sfx.c">
       <Filter>audio</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\audio\sfx_synth.c">
+      <Filter>audio</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\graphics\grap.c">
       <Filter>graphics</Filter>
     </ClCompile>
@@ -458,6 +461,9 @@
       <Filter>audio</Filter>
     </ClInclude>
     <ClInclude Include="..\src\audio\sfx_map.h">
+      <Filter>audio</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\audio\sfx_synth.h">
       <Filter>audio</Filter>
     </ClInclude>
     <ClInclude Include="..\src\translate.h">

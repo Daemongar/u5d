@@ -2,6 +2,9 @@
 #include "common/options.h"
 #include "audio/aud_mus.h"
 #include "audio/aud_sfx.h"
+#include "audio/audio.h"
+
+#include <math.h>
 #include "funcs.h"
 #include "macros.h"
 #include "vars.h"
@@ -132,6 +135,16 @@ void ULTIMA_4102_AudioPlayAmbientSfx(void)
 		}
 	}
 
+#if defined(TARGET_SDL)
+    // local_4 is the squared distance to the nearest sound source (under 0x33).
+    int waterKind = (local_e == 2 || local_e == 3) ? local_e : AMBIENT_NONE;
+    int closeness = 100 - (int)(sqrt((double)local_4) * 100 / 7.15);
+    if (AUDIO_SetAmbientWater(waterKind, closeness < 0 ? 0 : closeness))
+    {
+        local_e = 0;
+    }
+#endif
+
 	switch (local_e)
 	{
     case 1:
@@ -198,18 +211,25 @@ void ULTIMA_433e_AudioFootstep(void)
 
 #if defined(ENABLE_TERRAIN_FOOTSTEPS)
 // One step of a terrain-specific footstep, built from the same white-noise
-// generator as the original click. holdSamples sets the grain (1 is a bright
-// hiss, larger values are duller and lower); durMs sets the length. A new
-// sound replaces the one playing, so bursts are spaced with real sleeps.
+// generator as the original click. holdSamples sets the grain, in samples at
+// 44.1 kHz (1 is a bright hiss, larger values are duller and lower); durMs
+// sets the length. white_noise() counts both in units of about 52
+// microseconds (src/audio/sfx_synth.c). Bursts are spaced with real sleeps.
 static void TerrainStep(int holdSamples, int durMs, int bursts)
 {
+    int rate = (holdSamples * 436 + 500) / 1000;
+    if (rate < 1)
+    {
+        rate = 1;
+    }
+
     for (int i = 0; i < bursts; i++)
     {
         if (i > 0)
         {
             TIME_SleepMs(durMs + 6);
         }
-        ULTIMA_223c_AudioWhiteNoise(holdSamples, durMs, 1000);
+        ULTIMA_223c_AudioWhiteNoise(rate, durMs * 1000 / 52, 1000);
     }
 }
 

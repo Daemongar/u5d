@@ -1,6 +1,8 @@
 #ifndef _AUDIO_AUDIO_H
 #define _AUDIO_AUDIO_H
 
+#include "common/common.h"
+
 #define BGM_ID_1 1
 #define BGM_ID_2 2
 #define BGM_ID_3 3
@@ -23,6 +25,10 @@
 #define SFX_TYPE_PCM 1
 #define SFX_TYPE_SYNTH 2
 
+#define AMBIENT_NONE 0
+#define AMBIENT_WATERFALL 2
+#define AMBIENT_FOUNTAIN 3
+
 extern void AUDIO_Initialize(void);
 extern void AUDIO_Cleanup(void);
 
@@ -37,5 +43,10 @@ extern void AUDIO_PlaySynthPulse(int freq, int delay, int dur, int pulseWidth, i
 extern void AUDIO_PlaySynthNoise(int rate, int dur, int limit);
 extern void AUDIO_PlaySynthTone(int freq, int dur);
 extern void AUDIO_PlaySynthSweepTone(int param_1, int param_2, int param_3, int param_4);
+
+// Running water near the party, called with every map update. closeness is
+// 0-100. Returns true when the driver plays it as a continuous loop, in which
+// case the original's short noise bursts should not be played.
+extern bool AUDIO_SetAmbientWater(int kind, int closeness);
 
 #endif

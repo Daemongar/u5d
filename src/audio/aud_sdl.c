@@ -5,6 +5,7 @@
 #include "audio.h"
 #include "aud_ops.h"
 #include "sfx_map.h"
+#include "sfx_synth.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,55 +30,164 @@ static MIX_Audio* s_sfx[256];
 static int s_currentBgmId;
 static int s_queuedBgmId;
 
-// BUGFIX: PC-speaker-style synth playback. The original DOS driver dispatches
-// sound effects as (freq, delay, dur, pulseWidth, pulseInc)-style parameters
-// meant for direct speaker-timer synthesis (see src/audio/aud_sfx.c), but
-// neither the DOS PC-speaker driver (aud_spk.c) nor this SDL backend ever
-// implemented that synthesis - both were left as no-ops, so no sound played
-// for anything not covered by a sampled SFX/*.wav file (which don't exist
-// here). This renders square-wave/noise/sweep tones from those parameters
-// in software instead.
-#define SYNTH_SAMPLE_RATE 44100
-#define SYNTH_MAX_SECONDS 4.0
+// Sound effects come from the original's PC-speaker routines, rendered in
+// software (sfx_synth.c). Each plays on its own voice so effects can overlap.
+#define SFX_VOICES 12
 
-static MIX_Audio* s_synthAudio;
+// The original game waited for each effect to finish before going on, so an
+// effect that starts while the last one is still playing waits its turn,
+// unless that would leave it this far behind the game.
+#define SPEAKER_QUEUE_NS 1000000000ull
 
-static void AUDIO_SDL_FadeEdges(Sint16* samples, int numSamples)
+static MIX_Track* s_sfxVoices[SFX_VOICES];
+static MIX_Audio* s_sfxVoiceAudio[SFX_VOICES];
+static Uint64 s_sfxVoiceStart[SFX_VOICES];
+static Uint64 s_speakerFreeAt;
+
+// Fountains and waterfalls with enhanced effects: a loop that keeps playing
+// while the game keeps asking for it (every map update) and fades out a moment
+// after it stops, such as when walking away or talking to someone.
+#define AMBIENT_TIMEOUT_MS 1500
+#define AMBIENT_FADE_IN_MS 400
+#define AMBIENT_FADE_OUT_MS 800
+
+static MIX_Track* s_ambientTrack;
+static MIX_Audio* s_ambientAudio[2]; // waterfall, fountain; made on first use
+static SDL_PropertiesID s_ambientPlayProp;
+static SDL_Mutex* s_ambientLock;
+static SDL_TimerID s_ambientTimer;
+static int s_ambientKind;
+static float s_ambientLevel;
+static Uint64 s_ambientLastCall;
+
+static float AUDIO_SDL_SfxGain(void)
 {
-    int fade = numSamples / 40;
-    if (fade < 1)
-        return;
-    if (fade > numSamples / 2)
-        fade = numSamples / 2;
-
-    for (int i = 0; i < fade; i++)
-    {
-        double gain = (double)i / fade;
-        samples[i] = (Sint16)(samples[i] * gain);
-        samples[numSamples - 1 - i] = (Sint16)(samples[numSamples - 1 - i] * gain);
-    }
+    return g_options.soundEffects ? 0.2f * g_options.soundVolume / 8.0f : 0.0f;
 }
 
-static void AUDIO_SDL_PlaySynthBuffer(Sint16* samples, int numSamples)
+static void AUDIO_SDL_ApplyAmbientGain(void)
 {
-    if (numSamples <= 0)
-        return;
+    if (s_ambientTrack != NULL)
+        MIX_SetTrackGain(s_ambientTrack, AUDIO_SDL_SfxGain() * s_ambientLevel);
+}
 
-    AUDIO_SDL_FadeEdges(samples, numSamples);
+static void AUDIO_SDL_StopAmbient(void)
+{
+    if (s_ambientKind != AMBIENT_NONE)
+        MIX_StopTrack(s_ambientTrack, MIX_MSToFrames(SFXSYN_RATE, AMBIENT_FADE_OUT_MS));
+    s_ambientKind = AMBIENT_NONE;
+}
 
-    if (s_synthAudio)
+static Uint32 SDLCALL AUDIO_SDL_AmbientTimer(void* userdata, SDL_TimerID timerID, Uint32 interval)
+{
+    SDL_LockMutex(s_ambientLock);
+    if (s_ambientKind != AMBIENT_NONE && SDL_GetTicks() - s_ambientLastCall > AMBIENT_TIMEOUT_MS)
+        AUDIO_SDL_StopAmbient();
+    SDL_UnlockMutex(s_ambientLock);
+    return interval;
+}
+
+static bool AUDIO_SDL_SetAmbientWater(int kind, int closeness)
+{
+    if (!g_options.enhancedSounds || s_ambientTrack == NULL)
+        kind = AMBIENT_NONE;
+
+    SDL_LockMutex(s_ambientLock);
+    s_ambientLastCall = SDL_GetTicks();
+
+    if (kind != s_ambientKind)
     {
-        MIX_DestroyAudio(s_synthAudio);
-        s_synthAudio = NULL;
+        AUDIO_SDL_StopAmbient();
+
+        int slot = kind == AMBIENT_WATERFALL ? 0 : 1;
+        if (kind != AMBIENT_NONE && s_ambientAudio[slot] == NULL)
+        {
+            SfxBuffer water;
+            if (SFXSYN_Water(&water, kind == AMBIENT_WATERFALL))
+            {
+                Sint16* pcm = (Sint16*)malloc((size_t)water.count * sizeof(Sint16));
+                if (pcm)
+                {
+                    for (int i = 0; i < water.count; i++)
+                        pcm[i] = (Sint16)(water.samples[i] * 32767.0f);
+                    SDL_AudioSpec spec = { SDL_AUDIO_S16, 1, SFXSYN_RATE };
+                    s_ambientAudio[slot] = MIX_LoadRawAudio(s_mixer, pcm, (size_t)water.count * sizeof(Sint16), &spec);
+                    free(pcm);
+                }
+            }
+            SFXSYN_Free(&water);
+        }
+
+        if (kind != AMBIENT_NONE && s_ambientAudio[slot] != NULL)
+        {
+            MIX_SetTrackAudio(s_ambientTrack, s_ambientAudio[slot]);
+            MIX_PlayTrack(s_ambientTrack, s_ambientPlayProp);
+            s_ambientKind = kind;
+        }
     }
 
-    SDL_AudioSpec spec = { SDL_AUDIO_S16, 1, SYNTH_SAMPLE_RATE };
-    s_synthAudio = MIX_LoadRawAudio(s_mixer, samples, (size_t)numSamples * sizeof(Sint16), &spec);
-    if (!s_synthAudio)
+    // The fountain's trickle is quieter than a waterfall's rush to begin with.
+    float base = kind == AMBIENT_FOUNTAIN ? 2.5f : 1.0f;
+    s_ambientLevel = base * (0.3f + 0.7f * closeness / 100.0f);
+    AUDIO_SDL_ApplyAmbientGain();
+
+    bool playing = s_ambientKind != AMBIENT_NONE;
+    SDL_UnlockMutex(s_ambientLock);
+    return playing;
+}
+
+static int AUDIO_SDL_PickVoice(void)
+{
+    int oldest = 0;
+    for (int v = 0; v < SFX_VOICES; v++)
+    {
+        if (!MIX_TrackPlaying(s_sfxVoices[v]))
+            return v;
+        if (s_sfxVoiceStart[v] < s_sfxVoiceStart[oldest])
+            oldest = v;
+    }
+    return oldest;
+}
+
+static void AUDIO_SDL_PlaySynth(SfxBuffer* sound)
+{
+    Uint64 now = SDL_GetTicksNS();
+    Uint64 wait = 0;
+    if (s_speakerFreeAt > now && s_speakerFreeAt - now < SPEAKER_QUEUE_NS)
+        wait = s_speakerFreeAt - now;
+
+    Uint64 busyNs = (Uint64)sound->busy * 1000000000ull / SFXSYN_RATE;
+    if (now + wait + busyNs > s_speakerFreeAt)
+        s_speakerFreeAt = now + wait + busyNs;
+
+    // Waiting is done with silence at the start of the sound.
+    int lead = (int)(wait * SFXSYN_RATE / 1000000000ull);
+    int total = lead + sound->count;
+    Sint16* pcm = (Sint16*)calloc(total, sizeof(Sint16));
+    if (!pcm)
         return;
 
-    MIX_SetTrackAudio(s_sfxTrack, s_synthAudio);
-    MIX_PlayTrack(s_sfxTrack, 0);
+    for (int i = 0; i < sound->count; i++)
+    {
+        float v = sound->samples[i];
+        if (v > 1.0f) v = 1.0f;
+        if (v < -1.0f) v = -1.0f;
+        pcm[lead + i] = (Sint16)(v * 32767.0f);
+    }
+
+    SDL_AudioSpec spec = { SDL_AUDIO_S16, 1, SFXSYN_RATE };
+    MIX_Audio* audio = MIX_LoadRawAudio(s_mixer, pcm, (size_t)total * sizeof(Sint16), &spec);
+    free(pcm);
+    if (!audio)
+        return;
+
+    int v = AUDIO_SDL_PickVoice();
+    MIX_SetTrackAudio(s_sfxVoices[v], audio);
+    MIX_PlayTrack(s_sfxVoices[v], 0);
+    if (s_sfxVoiceAudio[v])
+        MIX_DestroyAudio(s_sfxVoiceAudio[v]);
+    s_sfxVoiceAudio[v] = audio;
+    s_sfxVoiceStart[v] = now;
 }
 
 void AUDIO_SDL_LoadBgmTable(void);
@@ -91,8 +201,15 @@ void AUDIO_SDL_ApplySoundOptions(void)
 {
     if (s_bgmTrack != NULL)
         MIX_SetTrackGain(s_bgmTrack, g_options.music ? 0.3f * g_options.musicVolume / 8.0f : 0.0f);
+    float sfxGain = AUDIO_SDL_SfxGain();
     if (s_sfxTrack != NULL)
-        MIX_SetTrackGain(s_sfxTrack, g_options.soundEffects ? 0.2f * g_options.soundVolume / 8.0f : 0.0f);
+        MIX_SetTrackGain(s_sfxTrack, sfxGain);
+    for (int v = 0; v < SFX_VOICES; v++)
+    {
+        if (s_sfxVoices[v] != NULL)
+            MIX_SetTrackGain(s_sfxVoices[v], sfxGain);
+    }
+    AUDIO_SDL_ApplyAmbientGain();
 }
 
 void AUDIO_SDL_Init(void)
@@ -103,6 +220,15 @@ void AUDIO_SDL_Init(void)
 
     s_bgmTrack = MIX_CreateTrack(s_mixer);
     s_sfxTrack = MIX_CreateTrack(s_mixer);
+    for (int v = 0; v < SFX_VOICES; v++)
+        s_sfxVoices[v] = MIX_CreateTrack(s_mixer);
+
+    s_ambientTrack = MIX_CreateTrack(s_mixer);
+    s_ambientPlayProp = SDL_CreateProperties();
+    SDL_SetNumberProperty(s_ambientPlayProp, MIX_PROP_PLAY_LOOPS_NUMBER, -1);
+    SDL_SetNumberProperty(s_ambientPlayProp, MIX_PROP_PLAY_FADE_IN_MILLISECONDS_NUMBER, AMBIENT_FADE_IN_MS);
+    s_ambientLock = SDL_CreateMutex();
+    s_ambientTimer = SDL_AddTimer(250, AUDIO_SDL_AmbientTimer, NULL);
 
     AUDIO_SDL_ApplySoundOptions();
 
@@ -119,10 +245,26 @@ void AUDIO_SDL_Cleanup(void)
 {
     // TODO: release audios
 
-    if (s_synthAudio)
+    SDL_RemoveTimer(s_ambientTimer);
+    MIX_DestroyTrack(s_ambientTrack);
+    s_ambientTrack = NULL;
+    for (int i = 0; i < 2; i++)
     {
-        MIX_DestroyAudio(s_synthAudio);
-        s_synthAudio = NULL;
+        if (s_ambientAudio[i])
+            MIX_DestroyAudio(s_ambientAudio[i]);
+        s_ambientAudio[i] = NULL;
+    }
+    SDL_DestroyProperties(s_ambientPlayProp);
+    SDL_DestroyMutex(s_ambientLock);
+    s_ambientLock = NULL;
+
+    for (int v = 0; v < SFX_VOICES; v++)
+    {
+        MIX_DestroyTrack(s_sfxVoices[v]);
+        s_sfxVoices[v] = NULL;
+        if (s_sfxVoiceAudio[v])
+            MIX_DestroyAudio(s_sfxVoiceAudio[v]);
+        s_sfxVoiceAudio[v] = NULL;
     }
 
     MIX_SetTrackStoppedCallback(s_bgmTrack, NULL, NULL);
@@ -192,6 +334,9 @@ void AUDIO_SDL_StopSfx(void)
 {
     Sint64 frames = MIX_MSToFrames(s_mixerSpec.freq, 10);
     MIX_StopTrack(s_sfxTrack, frames);
+    for (int v = 0; v < SFX_VOICES; v++)
+        MIX_StopTrack(s_sfxVoices[v], frames);
+    s_speakerFreeAt = 0;
     const char* err = SDL_GetError();
     if (err) { puts(err); }
 }
@@ -280,167 +425,36 @@ static int AUDIO_SDL_GetSfxType(void)
     return SFX_TYPE_SYNTH;
 }
 
-// freq is direct Hz (confirmed by tickhigh/ticklow and denyhi/denylo pairs in
-// sfx_map.h, which only order correctly - hi > lo - under a direct-Hz
-// reading). pulseWidth/pulseInc modulate the square wave's duty cycle over
-// the tone's duration, giving the "warbling" plucked/chime timbre used for
-// fixed-pitch cues like the harpsichord/lute notes.
 static void AUDIO_SDL_PlaySynthPulse(int freq, int delay, int dur, int pulseWidth, int pulseInc)
 {
-    (void)delay;
-
-    if (freq <= 0 || dur <= 0)
-        return;
-
-    double freqHz = freq;
-    if (freqHz < 20.0) freqHz = 20.0;
-    if (freqHz > 20000.0) freqHz = 20000.0;
-
-    double seconds = dur / 1000.0;
-    if (seconds > SYNTH_MAX_SECONDS) seconds = SYNTH_MAX_SECONDS;
-    int numSamples = (int)(SYNTH_SAMPLE_RATE * seconds);
-    if (numSamples <= 0)
-        return;
-
-    Sint16* buf = (Sint16*)malloc((size_t)numSamples * sizeof(Sint16));
-    if (!buf)
-        return;
-
-    double duty0 = pulseWidth > 0 ? (double)(pulseWidth % 20000) / 20000.0 : 0.5;
-    if (duty0 < 0.1) duty0 = 0.1;
-    if (duty0 > 0.9) duty0 = 0.9;
-    double dutyShiftTotal = (pulseInc / 20000.0) * 2.0;
-
-    double phase = 0.0;
-    for (int i = 0; i < numSamples; i++)
-    {
-        double t = (double)i / numSamples;
-        double duty = duty0 + dutyShiftTotal * t;
-        if (duty < 0.05) duty = 0.05;
-        if (duty > 0.95) duty = 0.95;
-
-        phase += freqHz / SYNTH_SAMPLE_RATE;
-        double frac = phase - floor(phase);
-        buf[i] = (frac < duty) ? 12000 : -12000;
-    }
-
-    AUDIO_SDL_PlaySynthBuffer(buf, numSamples);
-    free(buf);
+    SfxBuffer sound;
+    if (SFXSYN_Pulse(&sound, g_options.enhancedSounds, freq, delay, dur, pulseWidth, pulseInc))
+        AUDIO_SDL_PlaySynth(&sound);
+    SFXSYN_Free(&sound);
 }
 
-// rate controls the noise "grain" (samples held per random step - larger
-// rate gives coarser, lower-pitched noise); dur is milliseconds directly
-// (this reading makes footsteps ~15-25ms clicks and waterfalls/fountains
-// 10-25s ambient bursts, both of which make sense for their names).
 static void AUDIO_SDL_PlaySynthNoise(int rate, int dur, int limit)
 {
-    (void)limit;
-
-    if (dur <= 0)
-        return;
-
-    double seconds = dur / 1000.0;
-    if (seconds > SYNTH_MAX_SECONDS + 2.0) seconds = SYNTH_MAX_SECONDS + 2.0;
-    int numSamples = (int)(SYNTH_SAMPLE_RATE * seconds);
-    if (numSamples <= 0)
-        return;
-
-    Sint16* buf = (Sint16*)malloc((size_t)numSamples * sizeof(Sint16));
-    if (!buf)
-        return;
-
-    int holdSamples = rate > 0 ? rate : 1;
-    if (holdSamples > 200) holdSamples = 200;
-
-    unsigned int seed = 0x9e3779b9u;
-    Sint16 current = 0;
-    for (int i = 0; i < numSamples; i++)
-    {
-        if (i % holdSamples == 0)
-        {
-            seed = seed * 1103515245u + 12345u;
-            current = (Sint16)(((seed >> 16) & 0x7fff) - 16384);
-        }
-
-        double envelope = 1.0 - (double)i / numSamples;
-        buf[i] = (Sint16)(current * envelope * 0.6);
-    }
-
-    AUDIO_SDL_PlaySynthBuffer(buf, numSamples);
-    free(buf);
+    SfxBuffer sound;
+    if (SFXSYN_Noise(&sound, g_options.enhancedSounds, rate, dur, limit))
+        AUDIO_SDL_PlaySynth(&sound);
+    SFXSYN_Free(&sound);
 }
 
-// Fixed-pitch square wave beep, freq in direct Hz, dur in milliseconds.
 static void AUDIO_SDL_PlaySynthTone(int freq, int dur)
 {
-    if (freq <= 0 || dur <= 0)
-        return;
-
-    double freqHz = freq;
-    if (freqHz < 20.0) freqHz = 20.0;
-    if (freqHz > 20000.0) freqHz = 20000.0;
-
-    double seconds = dur / 1000.0;
-    if (seconds > SYNTH_MAX_SECONDS) seconds = SYNTH_MAX_SECONDS;
-    if (seconds < 0.005) seconds = 0.005;
-    int numSamples = (int)(SYNTH_SAMPLE_RATE * seconds);
-    if (numSamples <= 0)
-        return;
-
-    Sint16* buf = (Sint16*)malloc((size_t)numSamples * sizeof(Sint16));
-    if (!buf)
-        return;
-
-    double phase = 0.0;
-    for (int i = 0; i < numSamples; i++)
-    {
-        phase += freqHz / SYNTH_SAMPLE_RATE;
-        double frac = phase - floor(phase);
-        buf[i] = (frac < 0.5) ? 12000 : -12000;
-    }
-
-    AUDIO_SDL_PlaySynthBuffer(buf, numSamples);
-    free(buf);
+    SfxBuffer sound;
+    if (SFXSYN_Tone(&sound, g_options.enhancedSounds, freq, dur))
+        AUDIO_SDL_PlaySynth(&sound);
+    SFXSYN_Free(&sound);
 }
 
-// Linear frequency sweep from startFreq to endFreq (direct Hz) over dur
-// milliseconds. Uses phase accumulation (integrating instantaneous
-// frequency) rather than naively evaluating freq(t)*t, which would produce
-// an audible click/discontinuity as the frequency changes.
 static void AUDIO_SDL_PlaySynthSweepTone(int startFreq, int endFreq, int tickStep, int dur)
 {
-    (void)tickStep;
-
-    if (dur <= 0)
-        return;
-    if (startFreq <= 0) startFreq = 100;
-    if (endFreq <= 0) endFreq = 100;
-
-    double seconds = dur / 1000.0;
-    if (seconds > SYNTH_MAX_SECONDS + 4.0) seconds = SYNTH_MAX_SECONDS + 4.0;
-    int numSamples = (int)(SYNTH_SAMPLE_RATE * seconds);
-    if (numSamples <= 0)
-        return;
-
-    Sint16* buf = (Sint16*)malloc((size_t)numSamples * sizeof(Sint16));
-    if (!buf)
-        return;
-
-    double phase = 0.0;
-    for (int i = 0; i < numSamples; i++)
-    {
-        double t = (double)i / numSamples;
-        double freqHz = startFreq + (endFreq - startFreq) * t;
-        if (freqHz < 20.0) freqHz = 20.0;
-        if (freqHz > 20000.0) freqHz = 20000.0;
-
-        phase += freqHz / SYNTH_SAMPLE_RATE;
-        double frac = phase - floor(phase);
-        buf[i] = (frac < 0.5) ? 12000 : -12000;
-    }
-
-    AUDIO_SDL_PlaySynthBuffer(buf, numSamples);
-    free(buf);
+    SfxBuffer sound;
+    if (SFXSYN_Sweep(&sound, g_options.enhancedSounds, startFreq, endFreq, tickStep, dur))
+        AUDIO_SDL_PlaySynth(&sound);
+    SFXSYN_Free(&sound);
 }
 
 static AudioMusicDriverOps s_musicOps =
@@ -462,7 +476,8 @@ static AudioSfxDriverOps s_sfxOps =
     .PlaySynthPulse = AUDIO_SDL_PlaySynthPulse,
     .PlaySynthNoise = AUDIO_SDL_PlaySynthNoise,
     .PlaySynthTone = AUDIO_SDL_PlaySynthTone,
-    .PlaySynthSweepTone = AUDIO_SDL_PlaySynthSweepTone
+    .PlaySynthSweepTone = AUDIO_SDL_PlaySynthSweepTone,
+    .SetAmbientWater = AUDIO_SDL_SetAmbientWater
 };
 
 AudioMusicDriverOps* AUDIO_SDL_GetMusicOps(void)

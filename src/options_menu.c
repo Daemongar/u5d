@@ -58,6 +58,7 @@ static OptionItem s_items[] =
     {PAGE_SOUND, ITEM_VOLUME, "Music volume", NULL, &g_options.musicVolume},
     {PAGE_SOUND, ITEM_TOGGLE, "Sound effects", &g_options.soundEffects, NULL},
     {PAGE_SOUND, ITEM_VOLUME, "Effects volume", NULL, &g_options.soundVolume},
+    {PAGE_SOUND, ITEM_TOGGLE, "Enhanced effects", &g_options.enhancedSounds, NULL},
     {PAGE_SOUND, ITEM_TOGGLE, "Terrain footsteps", &g_options.terrainFootsteps, NULL},
 
     {PAGE_GAMEPLAY, ITEM_TOGGLE, "Mouse aiming", &g_options.mouseAim, NULL},
