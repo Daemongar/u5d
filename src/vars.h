@@ -587,6 +587,7 @@ STUB u8 D_545e;
 // 5500
 STUB u8 D_54d4[32]; // normal walkable tile flag table
 STUB u8 D_54f4[64]; // some table. (party icon -> move type table)
+STUB u8 D_5534[16]; // river tiles 0x60-0x6f: directions a skiff may enter from
 
 STUB u8 D_5544[4];
 

@@ -852,7 +852,13 @@ int ULTIMA_2c4c(int param_1, int param_2)
         {
             return 1;
         }
+#if defined(TARGET_SDL)
+        // The original indexes past the end of D_54d4 into D_5534; here the
+        // arrays aren't laid out back to back, so read D_5534 directly.
+        if (!((uint)D_5534[param_2 - 0x60] & (8 >> (param_1 & 3))))
+#else
         if (!((uint)D_54d4[param_2] & (8 >> (param_1 & 3))))
+#endif
             return 0;
         else
             return 1;
