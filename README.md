@@ -1,8 +1,10 @@
 # u5d - Fixes to the original game
 
+> **Credit:** This project is built on [wonst719/u5d](https://github.com/wonst719/u5d), the decompilation of Ultima V: Warriors of Destiny by **wonst719**. The decompiled source and most of this repository's history are their work; this repository adds a native Windows/Linux build, graphics, audio and bug fixes on top of it. It is not affiliated with or endorsed by wonst719.
+
 ## Introduction
 
-This is an update to U5 decompiled at https://github.com/drcarademono/impera
+This is an update to the U5 decompilation by wonst719 at https://github.com/wonst719/u5d (also mirrored as https://github.com/drcarademono/impera).
 
 This is a bug fix and graphics update (640x400, with full-color 64x64 pixel map tiles at 1280x800.)
 
