@@ -1,5 +1,7 @@
 # u5d - Ultima V 디컴파일 프로젝트
 
+> **출처:** 이 저장소는 **wonst719**님의 Ultima V: Warriors of Destiny 디컴파일 프로젝트인 [wonst719/u5d](https://github.com/wonst719/u5d)를 기반으로 합니다. 디컴파일된 소스 코드와 이 저장소 이력의 대부분은 wonst719님의 작업이며, 이 저장소는 그 위에 Windows/Linux 네이티브 빌드, 그래픽, 오디오, 버그 수정을 추가한 것입니다. wonst719님과 제휴하거나 승인을 받은 프로젝트가 아닙니다. 아래 내용은 원 프로젝트의 소개 문서입니다.
+
 ## 소개
 
 이 프로젝트는 현재 진행 중인 Ultima V: Warriors of Destiny 디컴파일 프로젝트입니다.
