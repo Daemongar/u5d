@@ -100,24 +100,17 @@ static u16 KeyboardEventToUltimaKeycode(SDL_KeyboardEvent ev)
     return key;
 }
 
-// F1 opens the Options screen and F2 the shortcuts screen the next time the
-// game waits for a key.
-static bool s_optionsRequested;
-static bool s_shortcutsRequested;
+// F1 opens the Options screen, F2 the shortcuts screen and F3 the spells
+// screen the next time the game waits for a key.
+static int s_screenRequested;
 
 extern void GRAP_SDL_ReloadColorTiles(void);
 
 void KEY_SDL_ProcessKeyDown(SDL_KeyboardEvent ev)
 {
-    if (ev.key == SDLK_F1)
+    if (ev.key == SDLK_F1 || ev.key == SDLK_F2 || ev.key == SDLK_F3)
     {
-        s_optionsRequested = true;
-        return;
-    }
-
-    if (ev.key == SDLK_F2)
-    {
-        s_shortcutsRequested = true;
+        s_screenRequested = ev.key;
         return;
     }
 
@@ -217,20 +210,21 @@ int KEY_PollKey(void)
 
 	EVT_Yield();
 
-    if (s_optionsRequested || s_shortcutsRequested)
+    if (s_screenRequested != 0)
     {
-        bool options = s_optionsRequested;
-        s_optionsRequested = false;
-        s_shortcutsRequested = false;
+        int screen = s_screenRequested;
+        s_screenRequested = 0;
 
         // Pressed again while a screen is up: close it, as Esc would.
         if (OPTIONS_MENU_IsOpen())
             return U5_KEY_ESC;
 
-        if (options)
+        if (screen == SDLK_F1)
             OPTIONS_MENU_RunInGame();
-        else
+        else if (screen == SDLK_F2)
             OPTIONS_MENU_ShowShortcutsInGame();
+        else
+            OPTIONS_MENU_ShowSpellsInGame();
         return 0;
     }
 

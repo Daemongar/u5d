@@ -72,7 +72,7 @@ Then build with `make -f Makefile.linux` (or `CONFIG=debug`). The executable is 
 
 Choose **Options** on the title menu, or press **F1** during play, to change settings: arrow keys choose and change, Tab switches between the Display, Sound and Gameplay pages, and Esc saves and returns. Display and sound changes apply immediately.
 
-Press **F2** during play for a page listing the game's keyboard shortcuts; any key returns to the game.
+Press **F2** during play for a page listing the game's keyboard shortcuts; any key returns to the game. Press **F3** for the spells and their reagents, one circle per page (arrow keys turn the page). Two recipes, In Xen Mani and Rel Xen Bet, show `???`: they are learned from people in the game.
 
 Settings are stored in `ultima5.ini` in the game data directory:
 

@@ -11,6 +11,9 @@ void OPTIONS_MENU_RunInGame(void);
 // A page listing the game's keys, opened with F2 during play.
 void OPTIONS_MENU_ShowShortcutsInGame(void);
 
+// Pages of spells and their reagents, one circle each, opened with F3.
+void OPTIONS_MENU_ShowSpellsInGame(void);
+
 // True while the Options or shortcuts screen is showing.
 bool OPTIONS_MENU_IsOpen(void);
 #endif

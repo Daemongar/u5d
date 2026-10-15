@@ -378,7 +378,8 @@ static char* s_otherKeys[] =
     "Ctrl+K Karma",      "Ctrl+S Sound",
     "Ctrl+B Key buffer", "Ctrl+V Version",
     "Ctrl+E Exit game",  "F1     Options",
-    "F2     This page",  "F8     Reload tiles",
+    "F2     This page",  "F3     Spells",
+    "F8     Reload tiles",
 };
 
 #define SHORTCUT_LEFT_COLUMN 3
@@ -410,6 +411,141 @@ static void ShowShortcuts(void)
     PrintCentered(SCREEN_BOTTOM - 1, "Any key: done");
 
     ReadKey();
+
+    ULTIMA_16ba_PrintChar(CTRL_CHAR_CLEAR_WINDOW);
+    s_menuOpen = false;
+    g_presentFullScreenPage = false;
+}
+
+// Full spell names; the game's own list (D_19e2) cuts them to ten letters.
+static char* s_spellNames[48] =
+{
+    "In Lor", "Grav Por", "An Zu", "An Nox", "Mani", "An Ylem",
+    "An Sanct", "An Xen Corp", "Rel Hur", "In Wis", "Kal Xen", "In Xen Mani",
+    "Vas Lor", "Vas Flam", "In Flam Grav", "In Nox Grav", "In Zu Grav", "In Por",
+    "An Grav", "In Sanct", "In Sanct Grav", "Uus Por", "Des Por", "Wis Quas",
+    "In Bet Xen", "An Ex Por", "In Ex Por", "Vas Mani", "In Zu", "Rel Tym",
+    "In Vas Por Ylem", "Quas An Wis", "In An", "Wis An Ylem", "An Xen Ex", "Rel Xen Bet",
+    "Sanct Lor", "Xen Corp", "In Quas Xen", "In Quas Wis", "In Nox Hur", "In Quas Corp",
+    "In Mani Corp", "Kal Xen Corp", "In Vas Grav Corp", "In Flam Hur", "Vas Rel Por", "An Tym",
+};
+
+static char* s_circleNames[8] =
+{
+    "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth",
+};
+
+// Recipes the player learns by talking to people in the game, not from the
+// spell book; the page shows ??? for these.
+#define SPELL_IN_XEN_MANI 11
+#define SPELL_REL_XEN_BET 35
+
+#define SPELLS_PER_CIRCLE 6
+#define SPELL_NAME_COLUMN 3
+#define REAGENT_COLUMN 5
+#define REAGENT_WIDTH (SCREEN_RIGHT - 1 - REAGENT_COLUMN)
+
+// The spell's reagents from the mixing table (D_1cc0), wrapped onto as many
+// rows as they need. Returns the next free row.
+static int PrintReagents(int spell, int y)
+{
+    int x = REAGENT_COLUMN;
+    bool first = true;
+
+    if (spell == SPELL_IN_XEN_MANI || spell == SPELL_REL_XEN_BET)
+    {
+        PrintAt(x, y, "???");
+        return y + 1;
+    }
+
+    for (int i = 0; i < 8; i++)
+    {
+        if (!(D_1cc0[spell] & (0x80 >> i)))
+            continue;
+
+        int width = (int)strlen(D_3c20[i]) + (first ? 0 : 2);
+        if (!first && x + width + 1 > REAGENT_COLUMN + REAGENT_WIDTH)
+        {
+            ULTIMA_1850_PrintString(",");
+            x = REAGENT_COLUMN;
+            y++;
+            first = true;
+            width = (int)strlen(D_3c20[i]);
+        }
+
+        ULTIMA_1bf2_SetTextPosition(x, y);
+        if (!first)
+            ULTIMA_1850_PrintString(", ");
+        ULTIMA_1850_PrintString(D_3c20[i]);
+        x += width;
+        first = false;
+    }
+    return y + 1;
+}
+
+static void DrawSpellPage(int circle)
+{
+    char title[32];
+    int y = 5;
+
+    ULTIMA_16ba_PrintChar(CTRL_CHAR_CLEAR_WINDOW);
+    DrawFrame();
+    PrintCentered(1, "Spells and Reagents");
+    strcpy(title, s_circleNames[circle]);
+    strcat(title, " Circle");
+    PrintCentered(3, title);
+
+    for (int i = 0; i < SPELLS_PER_CIRCLE; i++)
+    {
+        int spell = circle * SPELLS_PER_CIRCLE + i;
+        PrintAt(SPELL_NAME_COLUMN, y++, s_spellNames[spell]);
+        y = PrintReagents(spell, y);
+    }
+
+    PrintCentered(SCREEN_BOTTOM - 2, "Arrows: circle   Esc: done");
+}
+
+static void ShowSpells(void)
+{
+    int circle = 0;
+
+    s_menuOpen = true;
+    g_presentFullScreenPage = true;
+    D_538e = 1;
+
+    ULTIMA_1c22_SetTextWindowSize(0, 0, 0, SCREEN_RIGHT, SCREEN_BOTTOM);
+    ULTIMA_1b94_SelectTextWindow(0);
+    ULTIMA_0c22_GRAP_0f_SelectPage(0);
+
+    DrawSpellPage(circle);
+
+    for (;;)
+    {
+        int key = ReadKey();
+
+        if (key == U5_KEY_ESC)
+            break;
+
+        switch (key)
+        {
+        case U5_KEY_LEFT:
+        case U5_KEY_UP:
+        case U5_KEY_PGUP:
+            circle = (circle + 7) % 8;
+            DrawSpellPage(circle);
+            break;
+
+        case U5_KEY_RIGHT:
+        case U5_KEY_DOWN:
+        case U5_KEY_PGDN:
+        case U5_KEY_SPACE:
+        case U5_KEY_ENTER:
+        case '\t':
+            circle = (circle + 1) % 8;
+            DrawSpellPage(circle);
+            break;
+        }
+    }
 
     ULTIMA_16ba_PrintChar(CTRL_CHAR_CLEAR_WINDOW);
     s_menuOpen = false;
@@ -478,6 +614,12 @@ void OPTIONS_MENU_RunInGame(void)
 void OPTIONS_MENU_ShowShortcutsInGame(void)
 {
     RunOverGame(ShowShortcuts);
+}
+
+// Opened with F3 while the game waits for a key.
+void OPTIONS_MENU_ShowSpellsInGame(void)
+{
+    RunOverGame(ShowSpells);
 }
 
 #endif
