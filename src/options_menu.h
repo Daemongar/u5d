@@ -7,6 +7,12 @@ void OPTIONS_MENU_Run(void);
 
 // The same screen opened with F1 during play; restores the game screen after.
 void OPTIONS_MENU_RunInGame(void);
+
+// A page listing the game's keys, opened with F2 during play.
+void OPTIONS_MENU_ShowShortcutsInGame(void);
+
+// True while the Options or shortcuts screen is showing.
+bool OPTIONS_MENU_IsOpen(void);
 #endif
 
 #endif

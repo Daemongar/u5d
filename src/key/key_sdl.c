@@ -100,8 +100,10 @@ static u16 KeyboardEventToUltimaKeycode(SDL_KeyboardEvent ev)
     return key;
 }
 
-// F1 opens the Options screen the next time the game waits for a key.
+// F1 opens the Options screen and F2 the shortcuts screen the next time the
+// game waits for a key.
 static bool s_optionsRequested;
+static bool s_shortcutsRequested;
 
 extern void GRAP_SDL_ReloadColorTiles(void);
 
@@ -110,6 +112,12 @@ void KEY_SDL_ProcessKeyDown(SDL_KeyboardEvent ev)
     if (ev.key == SDLK_F1)
     {
         s_optionsRequested = true;
+        return;
+    }
+
+    if (ev.key == SDLK_F2)
+    {
+        s_shortcutsRequested = true;
         return;
     }
 
@@ -209,10 +217,20 @@ int KEY_PollKey(void)
 
 	EVT_Yield();
 
-    if (s_optionsRequested)
+    if (s_optionsRequested || s_shortcutsRequested)
     {
+        bool options = s_optionsRequested;
         s_optionsRequested = false;
-        OPTIONS_MENU_RunInGame();
+        s_shortcutsRequested = false;
+
+        // Pressed again while a screen is up: close it, as Esc would.
+        if (OPTIONS_MENU_IsOpen())
+            return U5_KEY_ESC;
+
+        if (options)
+            OPTIONS_MENU_RunInGame();
+        else
+            OPTIONS_MENU_ShowShortcutsInGame();
         return 0;
     }
 

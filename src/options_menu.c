@@ -354,9 +354,76 @@ typedef struct TextState
     VideoDriverParams video;
 } TextState;
 
-// Opened with F1 while the game waits for a key: saves the screen and text
-// state, runs the Options screen, then puts everything back.
-void OPTIONS_MENU_RunInGame(void)
+// Keys listed on the shortcuts screen, in two columns.
+static char* s_commandKeys[] =
+{
+    "A Attack",          "N New order",
+    "B Board",           "O Open",
+    "C Cast",            "P Push",
+    "E Enter",           "Q Quit & save",
+    "F Fire",            "R Ready gear",
+    "G Get",             "S Search",
+    "H Hole up & camp",  "T Talk",
+    "I Ignite torch",    "U Use item",
+    "J Jimmy lock",      "V View gem",
+    "K Klimb",           "X X-it",
+    "L Look",            "Y Yell",
+    "M Mix reagents",    "Z Z-stats",
+};
+
+static char* s_otherKeys[] =
+{
+    "Arrows Move",       "Space  Pass",
+    "1-6    Active plr", "0      No active",
+    "Ctrl+K Karma",      "Ctrl+S Sound",
+    "Ctrl+B Key buffer", "Ctrl+V Version",
+    "Ctrl+E Exit game",  "F1     Options",
+    "F2     This page",  "F8     Reload tiles",
+};
+
+#define SHORTCUT_LEFT_COLUMN 3
+#define SHORTCUT_RIGHT_COLUMN 21
+
+static void PrintTwoColumns(char** entries, int count, int firstRow)
+{
+    for (int i = 0; i < count; i++)
+    {
+        PrintAt(i % 2 == 0 ? SHORTCUT_LEFT_COLUMN : SHORTCUT_RIGHT_COLUMN, firstRow + i / 2, entries[i]);
+    }
+}
+
+static void ShowShortcuts(void)
+{
+    s_menuOpen = true;
+    g_presentFullScreenPage = true;
+    D_538e = 1;
+
+    ULTIMA_1c22_SetTextWindowSize(0, 0, 0, SCREEN_RIGHT, SCREEN_BOTTOM);
+    ULTIMA_1b94_SelectTextWindow(0);
+    ULTIMA_0c22_GRAP_0f_SelectPage(0);
+
+    ULTIMA_16ba_PrintChar(CTRL_CHAR_CLEAR_WINDOW);
+    DrawFrame();
+    PrintCentered(1, "Keyboard Shortcuts");
+    PrintTwoColumns(s_commandKeys, ARRAYSIZE(s_commandKeys), 3);
+    PrintTwoColumns(s_otherKeys, ARRAYSIZE(s_otherKeys), 16);
+    PrintCentered(SCREEN_BOTTOM - 1, "Any key: done");
+
+    ReadKey();
+
+    ULTIMA_16ba_PrintChar(CTRL_CHAR_CLEAR_WINDOW);
+    s_menuOpen = false;
+    g_presentFullScreenPage = false;
+}
+
+bool OPTIONS_MENU_IsOpen(void)
+{
+    return s_menuOpen;
+}
+
+// Saves the screen and text state, runs a full-screen page over the game,
+// then puts everything back.
+static void RunOverGame(void (*page)(void))
 {
     TextState saved;
 
@@ -384,7 +451,7 @@ void OPTIONS_MENU_RunInGame(void)
     D_53a8_inverse = 0;
     ULTIMA_1c9e_SelectCharset(0);
 
-    OPTIONS_MENU_Run();
+    page();
 
     GRAP_BUF_RestoreScreen();
     memcpy(D_535e_textWindows, saved.windows, sizeof(saved.windows));
@@ -399,6 +466,18 @@ void OPTIONS_MENU_RunInGame(void)
     D_53aa_text_fg_color = saved.fg;
     D_53ab_text_bg_color = saved.bg;
     D_52ba_vdp = saved.video;
+}
+
+// Opened with F1 while the game waits for a key.
+void OPTIONS_MENU_RunInGame(void)
+{
+    RunOverGame(OPTIONS_MENU_Run);
+}
+
+// Opened with F2 while the game waits for a key.
+void OPTIONS_MENU_ShowShortcutsInGame(void)
+{
+    RunOverGame(ShowShortcuts);
 }
 
 #endif
