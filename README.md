@@ -1,4 +1,4 @@
-# u5d - Fixes to the original game
+# ultima5-sdl - Fixes to the original game
 
 > **Credit:** This project is built on [wonst719/u5d](https://github.com/wonst719/u5d), the decompilation of Ultima V: Warriors of Destiny by **wonst719**. The decompiled source and most of this repository's history are their work; this repository adds a native Windows/Linux build, graphics, audio and bug fixes on top of it. It is not affiliated with or endorsed by wonst719.
 
@@ -32,7 +32,7 @@ The original Ultima V game files are **not** included; you need your own copy (f
 
 ### Windows: Installer (no Visual Studio needed)
 
-Download `u5win-installer.msi` from the [latest release](https://github.com/Daemongar/u5d/releases/latest) and run it. It's a self-contained, per-user installer (no admin rights required, nothing else to install) that adds an "Ultima V" shortcut to the Start Menu. Run it once to install, then launch it from there.
+Download `u5win-installer.msi` from the [latest release](https://github.com/Daemongar/ultima5-sdl/releases/latest) and run it. It's a self-contained, per-user installer (no admin rights required, nothing else to install) that adds an "Ultima V" shortcut to the Start Menu. Run it once to install, then launch it from there.
 
 The installer isn't code-signed yet, so Windows may show "Windows protected your PC" (SmartScreen). Click **More info**, then **Run anyway**. Alternatively, right-click the downloaded file, choose **Properties**, tick **Unblock**, and click OK before running it.
 
@@ -41,7 +41,7 @@ The installer isn't code-signed yet, so Windows may show "Windows protected your
 Once you have the game running (installed or built):
 
 - From your Ultima V folder, it starts straight away.
-- From anywhere else, it asks you to choose your Ultima V folder the first time and remembers it (in `%APPDATA%\u5d\UltimaV` on Windows, `~/.local/share/u5d/UltimaV` on Linux).
+- From anywhere else, it asks you to choose your Ultima V folder the first time and remembers it (in `%APPDATA%\ultima5-sdl\UltimaV` on Windows, `~/.local/share/ultima5-sdl/UltimaV` on Linux). A folder remembered under the project's old name, `u5d`, is picked up and carried over.
 - `--data <folder>` on the command line picks the folder directly.
 
 A folder counts as Ultima V if it contains `BRIT.DAT`, `DATA.OVL`, `TILES.16` and `INIT.GAM`. GOG installs, which keep `INIT.GAM` and `SAVED.GAM` in `__support/save`, work as they are. Saves (`SAVEGAME/`) and `ultima5.ini` are kept in the game folder.

@@ -90,7 +90,7 @@ if (-not (Test-Path $SourceFile)) {
     throw "Source file not found: $SourceFile"
 }
 
-$rawDir = Join-Path $env:TEMP "u5d_bgm_raw"
+$rawDir = Join-Path $env:TEMP "ultima5-sdl_bgm_raw"
 New-Item -ItemType Directory -Force -Path $rawDir | Out-Null
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 

@@ -58,9 +58,12 @@ static bool TryFolder(const char* dir)
     return false;
 }
 
+#define PREF_ORG "ultima5-sdl"
+#define OLD_PREF_ORG "u5d" // the project's name before the rename
+
 static void RememberedPathFile(char* out, int size)
 {
-    char* prefDir = SDL_GetPrefPath("u5d", "UltimaV");
+    char* prefDir = SDL_GetPrefPath(PREF_ORG, "UltimaV");
     out[0] = '\0';
     if (prefDir != NULL)
     {
@@ -69,12 +72,27 @@ static void RememberedPathFile(char* out, int size)
     }
 }
 
-static bool LoadRememberedFolder(char* out, int size)
+// The same file under the old folder name. Built from the new path rather than
+// with SDL_GetPrefPath, which would create the old folder.
+static void OldRememberedPathFile(char* out, int size)
 {
     char file[PATH_MAX_LEN];
+    char* org;
+
+    out[0] = '\0';
+    RememberedPathFile(file, sizeof(file));
+    org = strstr(file, PREF_ORG);
+    if (org == NULL)
+        return;
+
+    *org = '\0';
+    SDL_snprintf(out, size, "%s%s%s", file, OLD_PREF_ORG, org + strlen(PREF_ORG));
+}
+
+static bool ReadFolderFile(const char* file, char* out, int size)
+{
     FILE* fp;
 
-    RememberedPathFile(file, sizeof(file));
     if (file[0] == '\0' || (fp = fopen(file, "r")) == NULL)
         return false;
 
@@ -83,6 +101,22 @@ static bool LoadRememberedFolder(char* out, int size)
     if (ok)
         out[strcspn(out, "\r\n")] = '\0';
     return ok && out[0] != '\0';
+}
+
+// *fromOldName is set when the folder came from the old settings folder, so
+// the caller can save it under the new one.
+static bool LoadRememberedFolder(char* out, int size, bool* fromOldName)
+{
+    char file[PATH_MAX_LEN];
+
+    *fromOldName = false;
+    RememberedPathFile(file, sizeof(file));
+    if (ReadFolderFile(file, out, size))
+        return true;
+
+    OldRememberedPathFile(file, sizeof(file));
+    *fromOldName = ReadFolderFile(file, out, size);
+    return *fromOldName;
 }
 
 static void RememberCurrentFolder(void)
@@ -148,8 +182,13 @@ bool DATAPATH_Locate(int argc, char** argv)
         }
     }
 
-    if (LoadRememberedFolder(path, sizeof(path)) && TryFolder(path))
+    bool fromOldName;
+    if (LoadRememberedFolder(path, sizeof(path), &fromOldName) && TryFolder(path))
+    {
+        if (fromOldName)
+            RememberCurrentFolder();
         return true;
+    }
 
     // Ask. The dialogs need SDL's video subsystem, which the backend starts
     // properly later; SDL counts the initializations.

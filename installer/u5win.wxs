@@ -3,7 +3,7 @@
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
   <Package Name="Ultima V: Warriors of Destiny (Decompilation)"
-           Manufacturer="u5d Project"
+           Manufacturer="ultima5-sdl Project"
            Version="$(var.ProductVersion)"
            UpgradeCode="1831D384-11AC-4B9C-805F-69AB825B69E2"
            Compressed="yes"
@@ -17,8 +17,8 @@
 
     <Icon Id="AppIcon.ico" SourceFile="$(var.RepoDir)\u5win\u5win.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
-    <Property Id="ARPHELPLINK" Value="https://github.com/Daemongar/u5d" />
-    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Daemongar/u5d" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Daemongar/ultima5-sdl" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Daemongar/ultima5-sdl" />
     <Property Id="ARPNOREPAIR" Value="1" />
 
     <StandardDirectory Id="LocalAppDataFolder">
@@ -65,7 +65,7 @@
                   WorkingDirectory="INSTALLFOLDER"
                   Icon="AppIcon.ico" />
         <RemoveFolder Id="CleanUpShortcutFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
-        <RegistryValue Root="HKCU" Key="Software\u5d\UltimaV" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="HKCU" Key="Software\ultima5-sdl\UltimaV" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </ComponentGroup>
 
