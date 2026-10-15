@@ -143,6 +143,12 @@
 // hills, mountains, roads). The original played the same click everywhere.
 //#define ENABLE_TERRAIN_FOOTSTEPS 1
 
+// Let a skiff leave a river tile through its open ends, back the way it came.
+// On an island's south shore (x 0x0f, y 0xaa) a river bend opens only onto
+// shoreline that can't be entered southward or westward, so a skiff rowed in
+// was stuck.
+//#define ENABLE_SKIFF_RIVER_EXIT 1
+
 // Keep animated tiles (water, lava, flags, fireplaces, shorelines, clock,
 // ladders) moving when drawn from the full-color TILES.BMP atlas.
 //#define ENABLE_ANIMATED_COLOR_TILES 1
@@ -177,6 +183,7 @@
 #define ENABLE_U4_CLASS_MANA 1
 #define ENABLE_TERRAIN_FOOTSTEPS 1
 #define ENABLE_ANIMATED_COLOR_TILES 1
+#define ENABLE_SKIFF_RIVER_EXIT 1
 //#define ENABLE_TRANSLATION 1
 #endif
 

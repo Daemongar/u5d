@@ -160,6 +160,26 @@ static int MAINOUT_00da(int param_1)
     return local2_4;
 }
 
+#if defined(ENABLE_SKIFF_RIVER_EXIT)
+// A skiff on a river tile may leave through the tile's open ends onto any
+// water, shoreline or river tile. The party tile already faces the move.
+static bool MAINOUT_SkiffCanLeaveRiver(int targetTile)
+{
+    int here = GetMapViewport(5, 5);
+    int dir = D_587c_partyTile & 3;
+
+    if ((D_587c_partyTile & 0xfc) != TILE_ACTOR_SKIFF || here < TILE_MAP_60 || here > TILE_MAP_6F)
+        return false;
+
+    // An open end on the side we're leaving is one a skiff can enter from
+    // that side, i.e. moving the opposite way.
+    if (!(D_5534[here - TILE_MAP_60] & (8 >> ((dir + 2) & 3))))
+        return false;
+
+    return targetTile < 4 || (targetTile & 0xfc) == 0x34 || (targetTile >= TILE_MAP_60 && targetTile <= TILE_MAP_6F);
+}
+#endif
+
 // OK P1
 // Check before Walk/Move
 static int MAINOUT_01fe(int param_2, int param_1)
@@ -197,6 +217,12 @@ static int MAINOUT_01fe(int param_2, int param_1)
     local_8 = GetMapViewport(param_2 + 5, param_1 + 5);
 
     local_4 = local_4 && ULTIMA_2c4c(D_587c_partyTile, local_8) != 0 ? 1 : 0;
+#if defined(ENABLE_SKIFF_RIVER_EXIT)
+    if (!local_4 && local_6 == 0 && MAINOUT_SkiffCanLeaveRiver(local_8))
+    {
+        local_4 = 1;
+    }
+#endif
     if (local_4 == 0)
     {
         if (D_5955 != 0)

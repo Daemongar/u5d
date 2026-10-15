@@ -316,3 +316,9 @@ Things learned about the original PC-DOS game while working on the source. They 
 - **The traitor Saduj is recognized by his name:** the code treats any party member whose name has 'j' as its fifth letter as hostile.
 - **The game requests some files in lower case** (`ibm.ch`, `runes.ch`) while the disk files are upper case. DOS ignored the difference; the Linux build matches file names case-insensitively.
 - **Several routines read just outside their arrays**, relying on the DOS memory layout to make the stray reads harmless. These are guarded under `ENABLE_BUG_FIX`.
+
+### Sailing
+
+- **River tiles have open ends.** A skiff may only row onto a river tile from a side the river opens toward. The table of open ends sits just past the walkable-tile table in `DATA.OVL`, and the code reads it as part of that table; the SDL builds keep it as its own array.
+- **Waterfalls carry you over.** Standing just north of a waterfall sweeps you two tiles south before you can move. The falls at x 0x36, y 0x89 drop a skiff into the Underworld, whose waterways have no route back to Britannia.
+- **A river bend on an island's south shore (x 0x0f, y 0xaa) trapped skiffs.** Its open ends face shoreline that can't be entered southward or westward, so a skiff rowed in could not row out. `ENABLE_SKIFF_RIVER_EXIT` lets a skiff leave a river tile through its open ends.
